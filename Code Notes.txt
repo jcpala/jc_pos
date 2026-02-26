@@ -1,0 +1,6 @@
+1. Call service from any where like this:
+
+$ticket_data = JC_Ticket_Service::generate_ticket_number(
+    $register_id,
+    'CONSUMIDOR_FINAL'
+);

@@ -1,0 +1,121 @@
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- =========================
+-- STORES
+-- =========================
+CREATE TABLE wp_jc_stores (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(150) NOT NULL,
+    tax_id VARCHAR(50) NOT NULL,
+    address TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- =========================
+-- REGISTERS (PC registered at MH)
+-- =========================
+CREATE TABLE wp_jc_registers (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    store_id BIGINT UNSIGNED NOT NULL,
+    register_name VARCHAR(100) NOT NULL,
+    pc_serial VARCHAR(150) NOT NULL,
+    mh_resolution_number VARCHAR(100) NOT NULL,
+    resolution_date DATE NOT NULL,
+    is_active TINYINT(1) DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (store_id) REFERENCES wp_jc_stores(id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- =========================
+-- CORRELATIVOS (Per Register + Document Type)
+-- =========================
+CREATE TABLE wp_jc_correlativos (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    register_id BIGINT UNSIGNED NOT NULL,
+
+    document_type ENUM(
+        'CONSUMIDOR_FINAL',
+        'CREDITO_FISCAL',
+        'NOTA_CREDITO'
+    ) NOT NULL,
+
+    correlativo_number VARCHAR(100) NOT NULL,  -- number provided by MH
+    range_start BIGINT NOT NULL,
+    range_end BIGINT NOT NULL,
+    current_number BIGINT NOT NULL,
+    issue_date DATE NOT NULL,
+
+    is_active TINYINT(1) DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (register_id) REFERENCES wp_jc_registers(id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- =========================
+-- INVOICES (All fiscal documents)
+-- =========================
+CREATE TABLE wp_jc_invoices (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+
+    store_id BIGINT UNSIGNED NOT NULL,
+    register_id BIGINT UNSIGNED NOT NULL,
+    correlativo_id BIGINT UNSIGNED NOT NULL,
+
+    document_type ENUM(
+        'CONSUMIDOR_FINAL',
+        'CREDITO_FISCAL',
+        'NOTA_CREDITO'
+    ) NOT NULL,
+
+    ticket_number BIGINT NOT NULL,
+
+    -- Buyer Info
+    customer_name VARCHAR(200),
+    customer_nit VARCHAR(50),
+    customer_address TEXT,
+
+    -- Financials
+    subtotal DECIMAL(14,2) NOT NULL,
+    tax_amount DECIMAL(14,2) NOT NULL,
+    total DECIMAL(14,2) NOT NULL,
+
+    -- Status Control
+    status ENUM(
+        'ISSUED',
+        'VOIDED',
+        'REFUNDED'
+    ) DEFAULT 'ISSUED',
+
+    original_invoice_id BIGINT UNSIGNED NULL, -- used for credit notes
+
+    issued_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (store_id) REFERENCES wp_jc_stores(id),
+    FOREIGN KEY (register_id) REFERENCES wp_jc_registers(id),
+    FOREIGN KEY (correlativo_id) REFERENCES wp_jc_correlativos(id),
+    FOREIGN KEY (original_invoice_id) REFERENCES wp_jc_invoices(id)
+) ENGINE=InnoDB;
+
+-- =========================
+-- INVOICE ITEMS
+-- =========================
+CREATE TABLE wp_jc_invoice_items (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    invoice_id BIGINT UNSIGNED NOT NULL,
+
+    product_name VARCHAR(255) NOT NULL,
+    quantity DECIMAL(10,2) NOT NULL,
+    unit_price DECIMAL(14,2) NOT NULL,
+    tax_rate DECIMAL(5,2) NOT NULL,
+    tax_amount DECIMAL(14,2) NOT NULL,
+    line_total DECIMAL(14,2) NOT NULL,
+
+    FOREIGN KEY (invoice_id) REFERENCES wp_jc_invoices(id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+SET FOREIGN_KEY_CHECKS = 1;
