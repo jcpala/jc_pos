@@ -67,58 +67,67 @@ class JC_Register_Admin {
         if (!current_user_can('manage_woocommerce')) {
             wp_die('No permission.');
         }
-
-        echo '<div class="wrap"><h1 style="display:none;"> Teavo Register</h1></div>';
-
-        // App shell (JS fills content)
         ?>
-<div class="jc-pos-left">
-  <div class="jc-pos-toolbar">
-    <input id="jc-search" class="jc-input" placeholder="Search products..." />
-    <button id="jc-refresh" class="button">Refresh</button>
+
+
+<div id="jc-pos-app" class="jc-pos">
+  <div class="jc-pos-left">
+    <div class="jc-pos-toolbar">
+      <input id="jc-search" class="jc-input" placeholder="Search products..." />
+      <button id="jc-refresh" class="button">Refresh</button>
+    </div>
+
+    <div id="jc-menus" class="jc-menus"></div>
+    <div id="jc-products" class="jc-grid"></div>
   </div>
 
-  <!-- Menu pills -->
-  <div id="jc-menus" class="jc-menus"></div>
+  <div class="jc-pos-right">
+  <h2 class="jc-cart-title">Cart</h2>
 
-  <!-- Products -->
-  <div id="jc-products" class="jc-grid"></div>
+  <!-- SCROLL AREA -->
+  <div id="jc-cart" class="jc-cart-canvas"></div>
+
+  <!-- FOOTER (PINNED) -->
+  <div class="jc-cart-footer">
+    <div class="jc-totals">
+      <div class="jc-row">
+        <strong>Subtotal</strong>
+        <span id="jc-subtotal">$0.00</span>
+      </div>
+
+      <div class="jc-row jc-row-controls">
+        <div class="jc-label">Discount</div>
+        <div class="jc-control-inline">
+          <select id="jc-discount-type" class="jc-input">
+            <option value="none">None</option>
+            <option value="percent">%</option>
+            <option value="amount">$</option>
+          </select>
+          <input id="jc-discount-value" class="jc-input" type="number" step="0.01" value="0" />
+        </div>
+      </div>
+
+      <div class="jc-row jc-row-controls">
+        <div class="jc-label">Fee</div>
+        <div class="jc-control-inline">
+          <input id="jc-fee-label" class="jc-input" placeholder="Reason (optional)" />
+          <input id="jc-fee-value" class="jc-input" type="number" step="0.01" value="0" />
+        </div>
+      </div>
+
+      <div class="jc-row jc-row-total">
+        <strong>Total</strong>
+        <span id="jc-total">$0.00</span>
+      </div>
+    </div>
+
+    <div class="jc-actions">
+      <button id="jc-checkout" class="button button-primary button-large">Complete Sale</button>
+    </div>
+
+    <div id="jc-result" class="jc-result"></div>
+  </div>
 </div>
-
-<!-- NEW: menu pills -->
-<div id="jc-menus" class="jc-menus"></div>
-
-<div id="jc-products" class="jc-grid"></div>
-
-
-            <div class="jc-pos-right">
-                <h2>Cart</h2>
-                <div id="jc-cart"></div>
-
-                <div class="jc-totals">
-                    <div><strong>Subtotal:</strong> <span id="jc-subtotal">$0.00</span></div>
-                    <div><strong>Discount:</strong>
-                        <select id="jc-discount-type" class="jc-input">
-                            <option value="none">None</option>
-                            <option value="percent">%</option>
-                            <option value="amount">$</option>
-                        </select>
-                        <input id="jc-discount-value" class="jc-input" type="number" step="0.01" value="0" />
-                    </div>
-                    <div><strong>Fee:</strong>
-                        <input id="jc-fee-label" class="jc-input" placeholder="Reason (optional)" />
-                        <input id="jc-fee-value" class="jc-input" type="number" step="0.01" value="0" />
-                    </div>
-                    <div><strong>Total:</strong> <span id="jc-total">$0.00</span></div>
-                </div>
-
-                <div class="jc-actions">
-                    <button id="jc-checkout" class="button button-primary button-large">Complete Sale</button>
-                </div>
-
-                <div id="jc-result" class="jc-result"></div>
-            </div>
-
             <!-- Modal -->
             <div id="jc-modal" class="jc-modal jc-hidden" aria-hidden="true">
                 <div class="jc-modal-card">
@@ -131,8 +140,7 @@ class JC_Register_Admin {
                         <label>Size</label>
                         <select id="jc-opt-size" class="jc-input"></select>
                         <label>Flavor</label>
-                        <label>Flavor</label>
-                        <select id="jc-opt-flavor" class="jc-input"></select>
+                         <select id="jc-opt-flavor" class="jc-input"></select>
 
                         <label>Toppings</label>
                         <div id="jc-opt-toppings" class="jc-toppings"></div>
@@ -147,6 +155,24 @@ class JC_Register_Admin {
                     </div>
                 </div>
             </div>
+<!-- Receipt Modal -->
+<div id="jc-receipt-modal" class="jc-modal jc-hidden" aria-hidden="true">
+  <div class="jc-modal-card" style="width:520px; max-width:95vw;">
+    <div class="jc-modal-header">
+      <h3>Receipt</h3>
+      <button id="jc-receipt-close" class="button">X</button>
+    </div>
+
+    <div class="jc-modal-body" id="jc-receipt-body"></div>
+
+    <div class="jc-modal-footer" style="display:flex; gap:8px; justify-content:flex-end;">
+      <button id="jc-receipt-print" class="button">Print</button>
+      <button id="jc-receipt-done" class="button button-primary">Done</button>
+    </div>
+  </div>
+</div>
+
+
         </div>
         <?php
     }

@@ -1,38 +1,69 @@
-/* Page base */
+/* =========================
+   Page base (WP Admin)
+========================= */
 #wpcontent { padding-left: 0; }
 #wpbody-content { padding-bottom: 0; }
 .wrap h1 { margin: 12px 0 10px; }
 
+/* =========================
+   Main layout
+   products left | cart right
+========================= */
+.jc-pos, .jc-pos * { box-sizing: border-box; }
+
 .jc-pos{
-  display:flex;
+  display:grid;
+  grid-template-columns: 1fr 380px;
   gap:16px;
-  padding:14px 16px;
-  align-items:flex-start;
+  padding:16px;
+  align-items:start;
 }
+.jc-pos-left{ min-width:0; }
 
-/* Left / Right layout (like Woo POS) */
-.jc-pos-left{
-  flex: 1;
-  min-width: 0;
-}
+/* Right cart panel */
 .jc-pos-right{
-  width: 380px;
-  flex: 0 0 380px;
-  background:#fff;
-  border:1px solid #dcdcde;
-  border-radius:12px;
-  padding:12px;
-  position: sticky;
-  top: 48px; /* below admin bar */
+    background:#fff;
+    border:1px solid #dcdcde;
+    border-radius:12px;
+    padding:12px;
+    display:flex;
+    flex-direction:column;
+    max-height: calc(100vh - 110px);
+    position: sticky;
+    top: 32px;
+    min-width: 0;
+  }
+
+.jc-pos-right h2{
+  margin: 4px 0 10px;
 }
 
-/* Toolbar */
+/* Scrollable cart list */
+.jc-cart-canvas{
+    flex: 1;
+    overflow:auto;
+    padding-right:6px;
+    border-top:1px solid #f0f0f0;
+    border-bottom:1px solid #f0f0f0;
+    padding-top:10px;
+    padding-bottom:10px;
+    min-width: 0;
+  }
+
+  /* Footer pinned */
+.jc-cart-footer{
+    padding-top:12px;
+  }
+/* =========================
+   Toolbar
+========================= */
 .jc-pos-toolbar{
   display:flex;
   gap:10px;
   align-items:center;
   margin-bottom:10px;
 }
+
 #jc-search{
   width: 100%;
   max-width: 520px;
@@ -40,34 +71,39 @@
   border-radius:10px;
   border:1px solid #dcdcde;
 }
+
 #jc-refresh{
   padding:8px 12px;
   border-radius:10px;
 }
 
+/* =========================
+   Menus (pills)
+========================= */
 .jc-menus{
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-    margin: 10px 0 12px;
-  }
-  
-  .jc-menu-btn{
-    border-radius: 999px !important;
-    padding: 6px 12px !important;
-    height: auto !important;
-    line-height: 1.2 !important;
-    font-size: 13px !important;
-  }
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin: 10px 0 12px;
+}
 
-/* Product grid: compact, consistent card size */
+.jc-menu-btn{
+  border-radius:999px !important;
+  padding:6px 12px !important;
+  height:auto !important;
+  line-height:1.2 !important;
+  font-size:13px !important;
+}
+
+/* =========================
+   Products grid + cards
+========================= */
 .jc-grid{
   display:grid;
   grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   gap:12px;
 }
 
-/* Product card */
 .jc-card{
   background:#fff;
   border:1px solid #dcdcde;
@@ -77,18 +113,21 @@
   flex-direction:column;
   box-shadow: 0 1px 0 rgba(0,0,0,0.03);
 }
-.jc-img {
-    height: 210px;
-    background-size: cover;       
-    background-repeat: no-repeat;
-    background-position: center 30%;
-    background-color: #f6f7f7;
-  }
+
+.jc-img{
+  height:210px;
+  background-size:cover;
+  background-repeat:no-repeat;
+  background-position:center 30%;
+  background-color:#f6f7f7;
+}
+
 .jc-name{
   padding:8px 10px 0;
   font-weight:600;
   font-size:13px;
 }
+
 .jc-bottom{
   padding:8px 10px 10px;
   display:flex;
@@ -96,17 +135,13 @@
   align-items:center;
   margin-top:auto;
 }
-.jc-bottom span{
-  font-weight:600;
-}
-.jc-bottom button{
-  border-radius:10px !important;
-}
 
-/* Cart */
-.jc-pos-right h2{
-  margin: 4px 0 10px;
-}
+.jc-bottom span{ font-weight:600; }
+.jc-bottom button{ border-radius:10px !important; }
+
+/* =========================
+   Cart canvas (scroll area)
+========================= */
 .jc-cart-row{
   display:flex;
   justify-content:space-between;
@@ -114,35 +149,101 @@
   padding:10px 0;
   border-bottom:1px solid #f0f0f1;
 }
-.jc-cart-row small{
-  color:#646970;
-}
-.jc-qty{ width:70px; border-radius:10px; }
 
-/* Totals area looks like a panel */
-.jc-totals{
-  margin-top:12px;
-  padding-top:10px;
-  border-top:1px solid #f0f0f1;
+.jc-cart-left{ min-width:0; }
+.jc-cart-row small{ color:#646970; }
+
+.jc-cart-right{
   display:flex;
-  flex-direction:column;
-  gap:10px;
+  align-items:center;
+  gap:8px;
 }
+
+.jc-qty{
+  width:70px;
+  border-radius:10px;
+}
+
+.jc-lineprice{
+  min-width:64px;
+  text-align:right;
+}
+
+/* =========================
+   Totals + footer (pinned)
+========================= */
+/* ---- Totals + footer (fixed, no grid conflicts) ---- */
+
+.jc-totals{
+    margin-top:12px;
+    padding-top:10px;
+    border-top:1px solid #f0f0f1;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  
+  /* Each totals row */
+  .jc-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+  }
+  
+  /* Rows that contain controls (Discount, Fee) */
+  .jc-row-controls{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  
+  .jc-label{
+    font-size:12px;
+    opacity:.8;
+    margin-bottom:4px;
+  }
+  
+  /* Control group: [left wide] [right amount] */
+  .jc-control-inline{
+    display:grid;
+    grid-template-columns: 1fr 110px;
+    gap:8px;
+    min-width:0;
+  }
+  
+  .jc-control-inline input,
+  .jc-control-inline select{
+    width:100%;
+    min-width:0;
+  }
+  
+  /* Total row styling */
+  .jc-row-total{
+    border-top:1px solid #eee;
+    padding-top:10px;
+    margin-top:10px;
+    font-size:16px;
+  }
 .jc-actions{ margin-top:12px; }
+
 #jc-checkout{
   width:100%;
   border-radius:12px !important;
   padding:10px 14px !important;
 }
 
-/* Result messages */
+/* =========================
+   Result messages
+========================= */
 .jc-result{ margin-top:12px; }
+
 .jc-good{
   padding:10px;
   border:1px solid #00a32a;
   background:#f0fff4;
   border-radius:12px;
 }
+
 .jc-bad{
   padding:10px;
   border:1px solid #b32d2e;
@@ -150,7 +251,9 @@
   border-radius:12px;
 }
 
-/* Modal */
+/* =========================
+   Modals (product + receipt)
+========================= */
 .jc-modal{
   position:fixed;
   inset:0;
@@ -160,7 +263,9 @@
   justify-content:center;
   z-index:9999;
 }
+
 .jc-hidden{ display:none; }
+
 .jc-modal-card{
   width:420px;
   background:#fff;
@@ -168,6 +273,7 @@
   border:1px solid #dcdcde;
   overflow:hidden;
 }
+
 .jc-modal-header{
   display:flex;
   justify-content:space-between;
@@ -175,16 +281,86 @@
   padding:10px 12px;
   border-bottom:1px solid #eee;
 }
+
 .jc-modal-body{
   padding:12px;
   display:flex;
   flex-direction:column;
   gap:10px;
 }
+
 .jc-top-row{ display:block; padding:6px 0; }
+
 .jc-modal-footer{
   padding:12px;
   border-top:1px solid #eee;
   display:flex;
   justify-content:flex-end;
 }
+
+/* receipt content */
+#jc-receipt-body{
+  max-height:60vh;
+  overflow:auto;
+  padding:6px;
+  background:#fff;
+}
+
+/* print only receipt */
+@media print{
+  body *{ visibility:hidden !important; }
+  #jc-receipt-body, #jc-receipt-body *{ visibility:visible !important; }
+  #jc-receipt-body{ position:fixed; left:0; top:0; width:100%; }
+}
+
+/* ==== RIGHT PANEL: scroll canvas + pinned footer (known-good) ==== */
+
+.jc-pos {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 16px;
+    align-items: start;
+  }
+  
+  /* Make the right panel a real column with a defined height */
+  .jc-pos-right{
+    background:#fff;
+    border:1px solid #dcdcde;
+    border-radius:12px;
+    padding:12px;
+  
+    display:flex;
+    flex-direction:column;
+  
+    /* IMPORTANT: give it a height */
+    height: calc(100vh - 110px);
+  
+    position: sticky;
+    top: 32px;
+    min-width: 0;
+  }
+  
+  /* Title should not shrink */
+  .jc-cart-title{
+    margin: 4px 0 10px;
+    flex: 0 0 auto;
+  }
+  
+  /* Canvas grows and scrolls */
+  #jc-cart.jc-cart-canvas{
+    flex: 1 1 auto;
+    min-height: 120px;   /* prevents collapsing when empty */
+    overflow: auto;
+  
+    padding-right: 6px;
+    border-top: 1px solid #f0f0f0;
+    border-bottom: 1px solid #f0f0f0;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  
+  /* Footer stays at bottom */
+  .jc-cart-footer{
+    flex: 0 0 auto;
+    padding-top: 12px;
+  }
