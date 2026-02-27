@@ -17,7 +17,12 @@ class JC_Invoice_Service {
         );
 
 if (!$correlativo) {
-    throw new Exception("No correlativo available.");
+    try {
+        $cor = JC_Correlativo_Service::get_active_correlativo_for_update($register_id, $document_type);
+    } catch (Throwable $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+    //throw new Exception("No correlativo available.");
 }
 
 // Now safe to use

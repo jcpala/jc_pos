@@ -3,12 +3,200 @@ if (!defined('ABSPATH')) exit;
 
 class JC_REST_Register {
 
+    
+
     public static function init() {
         add_action('rest_api_init', [self::class, 'routes']);
+        add_action('rest_api_init', function () {
+            register_rest_route('jc-pos/v1', '/menu', [
+              'methods' => 'GET',
+              'permission_callback' => '__return_true',
+              'callback' => 'jc_pos_api_menu_bootstrap',
+            ]);
+          
+            register_rest_route('jc-pos/v1', '/menu/(?P<id>\d+)', [
+              'methods' => 'GET',
+              'permission_callback' => '__return_true',
+              'callback' => 'jc_pos_api_menu_products',
+            ]);
+          });
     }
+
+    function jc_pos_api_menu_bootstrap() {
+        global $wpdb;
+      
+        $t_menus = $wpdb->prefix.'jc_pos_menus';
+        $t_sizes = $wpdb->prefix.'jc_size_rules';
+        $t_addons= $wpdb->prefix.'jc_addons';
+      
+        $menus = $wpdb->get_results("SELECT * FROM $t_menus WHERE is_active=1 ORDER BY sort_order ASC, id ASC", ARRAY_A);
+        $sizes = $wpdb->get_results("SELECT * FROM $t_sizes WHERE is_active=1 ORDER BY sort_order ASC, id ASC", ARRAY_A);
+        $addons= $wpdb->get_results("SELECT * FROM $t_addons WHERE is_active=1 ORDER BY addon_type ASC, sort_order ASC, id ASC", ARRAY_A);
+      
+        $addonsByType = ['TOPPING'=>[], 'SYRUP'=>[], 'OTHER'=>[]];
+        foreach ($addons as $a) $addonsByType[$a['addon_type']][] = $a;
+      
+        return rest_ensure_response([
+          'menus' => $menus,
+          'sizes' => $sizes,
+          'addons'=> $addonsByType,
+        ]);
+      }
+      
+      function jc_pos_api_menu_products($req) {
+        if (!function_exists('wc_get_product')) {
+          return new WP_Error('no_woo', 'WooCommerce not active', ['status'=>500]);
+        }
+      
+        global $wpdb;
+        $menu_id = (int)$req['id'];
+      
+        $t_menus = $wpdb->prefix.'jc_pos_menus';
+        $t_map   = $wpdb->prefix.'jc_pos_menu_products';
+      
+        $menu = $wpdb->get_row($wpdb->prepare("SELECT * FROM $t_menus WHERE id=%d", $menu_id), ARRAY_A);
+        if (!$menu) return new WP_Error('not_found', 'Menu not found', ['status'=>404]);
+      
+        $rows = $wpdb->get_results($wpdb->prepare("
+          SELECT product_id, sort_order
+          FROM $t_map
+          WHERE menu_id=%d
+          ORDER BY sort_order ASC, product_id ASC
+        ", $menu_id), ARRAY_A);
+      
+        $products = [];
+        foreach ($rows as $r) {
+          $pid = (int)$r['product_id'];
+          $p = wc_get_product($pid);
+          if (!$p) continue;
+      
+          $products[] = [
+            'id' => $pid,
+            'name' => $p->get_name(),
+            'price' => (float)$p->get_price(),
+            'image' => wp_get_attachment_image_url($p->get_image_id(), 'medium'),
+            'sort_order' => (int)$r['sort_order'],
+          ];
+        }
+      
+        return rest_ensure_response(['menu'=>$menu, 'products'=>$products]);
+      }
+      public static function menu_bootstrap(WP_REST_Request $req) {
+        global $wpdb;
+      
+        $t_menus  = $wpdb->prefix . 'jc_pos_menus';
+        $t_sizes  = $wpdb->prefix . 'jc_size_rules';
+        $t_addons = $wpdb->prefix . 'jc_addons';
+      
+        // Menu cards
+        $menus = $wpdb->get_results("
+          SELECT id, name, wc_category_id, image_id, is_active, sort_order
+          FROM $t_menus
+          WHERE is_active = 1
+          ORDER BY sort_order ASC, id ASC
+        ", ARRAY_A);
+      
+        // Resolve image URL (optional)
+        foreach ($menus as &$m) {
+          $m['image_url'] = !empty($m['image_id'])
+            ? wp_get_attachment_image_url((int)$m['image_id'], 'thumbnail')
+            : null;
+        }
+        unset($m);
+      
+        // Sizes
+        $sizes = $wpdb->get_results("
+          SELECT id, label, price_delta, is_default, is_active, sort_order
+          FROM $t_sizes
+          WHERE is_active = 1
+          ORDER BY sort_order ASC, id ASC
+        ", ARRAY_A);
+      
+        // Addons
+        $addons = $wpdb->get_results("
+          SELECT id, name, addon_type, price, is_active, sort_order
+          FROM $t_addons
+          WHERE is_active = 1
+          ORDER BY addon_type ASC, sort_order ASC, id ASC
+        ", ARRAY_A);
+      
+        $byType = ['TOPPING'=>[], 'SYRUP'=>[], 'OTHER'=>[]];
+        foreach ($addons as $a) {
+          $type = $a['addon_type'] ?: 'OTHER';
+          if (!isset($byType[$type])) $byType[$type] = [];
+          $byType[$type][] = $a;
+        }
+      
+        return rest_ensure_response([
+          'menus'  => $menus,
+          'sizes'  => $sizes,
+          'addons' => $byType,
+        ]);
+      }
+      
+      public static function menu_products(WP_REST_Request $req) {
+        if (!function_exists('wc_get_product')) {
+          return new WP_Error('no_woo', 'WooCommerce not active', ['status' => 500]);
+        }
+      
+        global $wpdb;
+      
+        $menu_id = (int)$req['id'];
+        $t_menus = $wpdb->prefix . 'jc_pos_menus';
+        $t_map   = $wpdb->prefix . 'jc_pos_menu_products';
+      
+        $menu = $wpdb->get_row($wpdb->prepare("SELECT * FROM $t_menus WHERE id=%d", $menu_id), ARRAY_A);
+        if (!$menu) {
+          return new WP_Error('not_found', 'Menu not found', ['status' => 404]);
+        }
+      
+        $rows = $wpdb->get_results($wpdb->prepare("
+          SELECT product_id, sort_order
+          FROM $t_map
+          WHERE menu_id=%d
+          ORDER BY sort_order ASC, product_id ASC
+        ", $menu_id), ARRAY_A);
+      
+        $products = [];
+        foreach ($rows as $r) {
+          $pid = (int)$r['product_id'];
+          $p = wc_get_product($pid);
+          if (!$p) continue;
+      
+          $products[] = [
+            'id'    => $pid,
+            'name'  => $p->get_name(),
+            'price' => (float)$p->get_price(),
+            'image' => wp_get_attachment_image_url($p->get_image_id(), 'medium'),
+            'sort_order' => (int)$r['sort_order'],
+          ];
+        }
+      
+        return rest_ensure_response([
+          'menu' => $menu,
+          'products' => $products,
+        ]);
+      }
 
     public static function routes() {
 
+
+
+        register_rest_route('jc-pos/v1', '/menu', [
+            'methods'  => 'GET',
+            'callback' => [self::class, 'menu_bootstrap'],
+            'permission_callback' => function () {
+            return is_user_logged_in() && current_user_can('manage_woocommerce');
+            },
+          ]);
+          
+          register_rest_route('jc-pos/v1', '/menu/(?P<id>\d+)', [
+            'methods'  => 'GET',
+            'callback' => [self::class, 'menu_products'],
+            'permission_callback' => function () {
+              return current_user_can('manage_woocommerce'); // or 'manage_options'
+            },
+          ]);
         register_rest_route('jc-pos/v1', '/products', [
             'methods'  => 'GET',
             'permission_callback' => function () {
@@ -27,6 +215,7 @@ class JC_REST_Register {
                 'cart' => ['required' => true],
             ]
         ]);
+        
     }
 
     public static function products(WP_REST_Request $req) {
@@ -196,9 +385,20 @@ class JC_REST_Register {
         $invoice_id = (int)$result['invoice_id'];
 
         // Best-effort MH send
-        $mh = null;
+        $mh = ['mh_status' => 'NOT_ATTEMPTED'];
+
         if (class_exists('JC_MH_Sender_Service')) {
-            $mh = JC_MH_Sender_Service::send_one($invoice_id);
+            try {
+                $mh = JC_MH_Sender_Service::send_one($invoice_id);
+                if (!is_array($mh)) {
+                    $mh = ['mh_status' => 'FAILED', 'error' => 'send_one() returned non-array'];
+                }
+            } catch (Throwable $e) {
+                error_log('[JC POS] MH send exception: ' . $e->getMessage());
+                $mh = ['mh_status' => 'FAILED', 'error' => $e->getMessage()];
+            }
+        } else {
+            $mh = ['mh_status' => 'FAILED', 'error' => 'JC_MH_Sender_Service not loaded'];
         }
 
         return rest_ensure_response([

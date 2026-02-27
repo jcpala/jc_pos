@@ -7,9 +7,11 @@
  * Company: Teavo
  */
 
+ if (!defined('ABSPATH')) exit;
 require_once plugin_dir_path(__FILE__) . 'includes/class-ticket-service.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-correlativo-service.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-invoice-service.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-mh-sender-service.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-correlativo-admin.php';
 add_action('init', ['JC_Correlativo_Admin', 'init']);
 
@@ -17,6 +19,9 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-audit-service.php';
 
 require_once plugin_dir_path(__FILE__) . 'includes/class-wc-checkout-fields.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-wc-fiscal-integration.php';
+require_once __DIR__ . '/includes/class-wc-register-fields.php';
+JC_WC_Register_Fields::init();
+
 
 add_action('init', ['JC_WC_Checkout_Fields', 'init']);
 add_action('init', ['JC_WC_Fiscal_Integration', 'init']);
@@ -43,4 +48,9 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-rest-register.php';
 add_action('init', ['JC_Register_Admin', 'init']);
 add_action('init', ['JC_REST_Register', 'init']);
 
+
+
+if (is_admin()) {
+    require_once __DIR__ . '/admin/jc-pos-admin.php';
+  }
 

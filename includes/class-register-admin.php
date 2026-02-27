@@ -6,6 +6,7 @@ class JC_Register_Admin {
     public static function init() {
         add_action('admin_menu', [self::class, 'menu']);
         add_action('admin_enqueue_scripts', [self::class, 'assets']);
+
     }
 
     public static function menu() {
@@ -31,6 +32,23 @@ class JC_Register_Admin {
             '1.0.0'
         );
 
+  echo '<style>
+  /* Hide admin notices + the WP footer only on Register page */
+  .notice, .update-nag, .updated, .error, .is-dismissible { display:none !important; }
+  #wpfooter { display:none !important; }
+</style>';
+
+        wp_add_inline_style('jc-register', '
+  /* Hide WP admin clutter only on Register page */
+  #wpbody-content > .notice,
+  #wpbody-content > .update-nag,
+  #wpbody-content > .updated,
+  #wpbody-content > .error,
+  #wpbody-content > .is-dismissible { display:none !important; }
+
+  #wpfooter { display:none !important; }
+');
+
         wp_enqueue_script(
             'jc-register',
             plugins_url('../assets/register.js', __FILE__),
@@ -40,9 +58,9 @@ class JC_Register_Admin {
         );
 
         wp_localize_script('jc-register', 'JC_POS', [
-            'restPath' => '/jc-pos/v1',
+            'apiBase' => esc_url_raw( rest_url('jc-pos/v1') ),
             'nonce'   => wp_create_nonce('wp_rest'),
-        ]);
+          ]);
     }
 
     public static function page() {
@@ -50,18 +68,28 @@ class JC_Register_Admin {
             wp_die('No permission.');
         }
 
-        echo '<div class="wrap"><h1>Register</h1></div>';
+        echo '<div class="wrap"><h1 style="display:none;"> Teavo Register</h1></div>';
 
         // App shell (JS fills content)
         ?>
-        <div id="jc-pos-app" class="jc-pos">
-            <div class="jc-pos-left">
-                <div class="jc-pos-toolbar">
-                    <input id="jc-search" class="jc-input" placeholder="Search products..." />
-                    <button id="jc-refresh" class="button">Refresh</button>
-                </div>
-                <div id="jc-products" class="jc-grid"></div>
-            </div>
+<div class="jc-pos-left">
+  <div class="jc-pos-toolbar">
+    <input id="jc-search" class="jc-input" placeholder="Search products..." />
+    <button id="jc-refresh" class="button">Refresh</button>
+  </div>
+
+  <!-- Menu pills -->
+  <div id="jc-menus" class="jc-menus"></div>
+
+  <!-- Products -->
+  <div id="jc-products" class="jc-grid"></div>
+</div>
+
+<!-- NEW: menu pills -->
+<div id="jc-menus" class="jc-menus"></div>
+
+<div id="jc-products" class="jc-grid"></div>
+
 
             <div class="jc-pos-right">
                 <h2>Cart</h2>
@@ -76,6 +104,10 @@ class JC_Register_Admin {
                             <option value="amount">$</option>
                         </select>
                         <input id="jc-discount-value" class="jc-input" type="number" step="0.01" value="0" />
+                    </div>
+                    <div><strong>Fee:</strong>
+                        <input id="jc-fee-label" class="jc-input" placeholder="Reason (optional)" />
+                        <input id="jc-fee-value" class="jc-input" type="number" step="0.01" value="0" />
                     </div>
                     <div><strong>Total:</strong> <span id="jc-total">$0.00</span></div>
                 </div>
@@ -99,12 +131,8 @@ class JC_Register_Admin {
                         <label>Size</label>
                         <select id="jc-opt-size" class="jc-input"></select>
                         <label>Flavor</label>
-                        <select id="jc-opt-flavor" class="jc-input">
-                            <option value="">Default</option>
-                            <option value="Original">Original</option>
-                            <option value="Matcha">Matcha</option>
-                            <option value="Taro">Taro</option>
-                        </select>
+                        <label>Flavor</label>
+                        <select id="jc-opt-flavor" class="jc-input"></select>
 
                         <label>Toppings</label>
                         <div id="jc-opt-toppings" class="jc-toppings"></div>
