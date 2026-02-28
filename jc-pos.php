@@ -8,6 +8,19 @@
  */
 
  if (!defined('ABSPATH')) exit;
+
+ add_action('plugins_loaded', function () {
+    if (!is_admin()) return;
+
+    $file = plugin_dir_path(__FILE__) . 'class-jc-invoices-admin.php';
+    if (file_exists($file)) {
+        require_once $file;
+        if (class_exists('JC_Invoices_Admin')) {
+            JC_Invoices_Admin::init();
+        }
+    }
+}, 1);
+
 require_once plugin_dir_path(__FILE__) . 'includes/class-ticket-service.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-correlativo-service.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-invoice-service.php';
@@ -21,6 +34,8 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-wc-checkout-fields.php'
 require_once plugin_dir_path(__FILE__) . 'includes/class-wc-fiscal-integration.php';
 require_once __DIR__ . '/includes/class-wc-register-fields.php';
 JC_WC_Register_Fields::init();
+require_once plugin_dir_path(__FILE__) . 'includes/class-jc-invoices-admin.php';
+JC_Invoices_Admin::init(); 
 
 
 add_action('init', ['JC_WC_Checkout_Fields', 'init']);

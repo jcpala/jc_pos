@@ -23,22 +23,30 @@ class JC_MH_Queue_Admin {
         if (!current_user_can('manage_options')) wp_die('No permission.');
         global $wpdb;
 
-        $status = isset($_GET['mh_status']) ? sanitize_text_field($_GET['mh_status']) : 'PENDING';
+        $status = isset($_GET['mh_status']) ? sanitize_text_field($_GET['mh_status']) : 'UNSENT';
         $doc    = isset($_GET['doc_type']) ? sanitize_text_field($_GET['doc_type']) : '';
         $reg    = isset($_GET['register_id']) ? (int)$_GET['register_id'] : 0;
-
-        $allowed_status = ['PENDING','FAILED','REJECTED','SENT'];
-        if (!in_array($status, $allowed_status, true)) $status = 'PENDING';
-
-        $where = "WHERE mh_status = %s";
-        $params = [$status];
-
+        
+        $allowed_status = ['UNSENT','PENDING','FAILED','REJECTED','SENT'];
+        if (!in_array($status, $allowed_status, true)) $status = 'UNSENT';
+        
+        // Always limit to ISSUED invoices (avoid VOIDED/REFUNDED noise)
+        $where = "WHERE status = 'ISSUED' ";
+        $params = [];
+        
+        if ($status === 'UNSENT') {
+            $where .= "AND mh_status IN ('PENDING','FAILED','REJECTED') ";
+        } else {
+            $where .= "AND mh_status = %s ";
+            $params[] = $status;
+        }
+        
         if ($doc !== '') {
-            $where .= " AND document_type = %s";
+            $where .= "AND document_type = %s ";
             $params[] = $doc;
         }
         if ($reg > 0) {
-            $where .= " AND register_id = %d";
+            $where .= "AND register_id = %d ";
             $params[] = $reg;
         }
 
@@ -56,7 +64,11 @@ class JC_MH_Queue_Admin {
         $registers = $wpdb->get_results("SELECT id, register_name FROM wp_jc_registers ORDER BY register_name ASC");
 
         $batch_url = wp_nonce_url(
-            admin_url('admin-post.php?action=jc_mh_batch_send&mh_status=' . urlencode($status)),
+            admin_url('admin-post.php?action=jc_mh_batch_send'
+                . '&mh_status=' . urlencode($status)
+                . '&doc_type=' . urlencode($doc)
+                . '&register_id=' . urlencode((string)$reg)
+            ),
             'jc_mh_batch_send'
         );
 
@@ -69,7 +81,7 @@ class JC_MH_Queue_Admin {
 
                 <label><strong>Status:</strong></label>
                 <select name="mh_status">
-                    <?php foreach (['PENDING','FAILED','REJECTED','SENT'] as $s): ?>
+                <?php foreach (['UNSENT','PENDING','FAILED','REJECTED','SENT'] as $s): ?>
                         <option value="<?= esc_attr($s) ?>" <?= selected($status, $s, false) ?>><?= esc_html($s) ?></option>
                     <?php endforeach; ?>
                 </select>
@@ -149,7 +161,17 @@ class JC_MH_Queue_Admin {
         if (!current_user_can('manage_options')) wp_die('No permission.');
         check_admin_referer('jc_mh_batch_send');
 
-        $result = JC_MH_Sender_Service::batch_send(50);
+        $status = isset($_GET['mh_status']) ? sanitize_text_field($_GET['mh_status']) : 'UNSENT';
+        $doc    = isset($_GET['doc_type']) ? sanitize_text_field($_GET['doc_type']) : '';
+        $reg    = isset($_GET['register_id']) ? (int)$_GET['register_id'] : 0;
+        
+        // If your service supports filters, use them.
+        // Otherwise, batch_send should default to unsent.
+        if (method_exists('JC_MH_Sender_Service', 'batch_send_filtered')) {
+            $result = JC_MH_Sender_Service::batch_send_filtered(50, $status, $doc, $reg);
+        } else {
+            $result = JC_MH_Sender_Service::batch_send(50);
+        }
 
         if (class_exists('JC_Audit_Service')) {
             JC_Audit_Service::log([
