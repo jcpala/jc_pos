@@ -120,7 +120,21 @@ class JC_Register_Admin {
         <span id="jc-total">$0.00</span>
       </div>
     </div>
+    <div class="jc-docwrap" style="display:flex;gap:10px;align-items:center;margin:10px 0;">
+  <strong>Documento:</strong>
 
+  <label style="display:flex;gap:6px;align-items:center;">
+    <input type="radio" name="jc_doc_type" value="CONSUMIDOR_FINAL" checked>
+    Consumidor Final
+  </label>
+
+  <label style="display:flex;gap:6px;align-items:center;">
+    <input type="radio" name="jc_doc_type" value="CREDITO_FISCAL">
+    Crédito Fiscal
+  </label>
+
+  <span id="jc-doc-badge" style="margin-left:auto;font-size:12px;opacity:.75;"></span>
+</div>
     <div class="jc-actions">
       <button id="jc-checkout" class="button button-primary button-large">Complete Sale</button>
     </div>

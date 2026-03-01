@@ -72,39 +72,49 @@ class JC_Invoice_Service {
             }
     
             foreach ($data['items'] as $item) {
-                $qty = (float)$item['quantity'];
-                $unit = (float)$item['unit_price'];
-                $tax_rate = (float)$item['tax_rate'];
-    
-                if ($qty <= 0) {
-                    throw new Exception("Invalid item quantity.");
-                }
-                if ($unit < 0) {
-                    throw new Exception("Invalid item unit price.");
-                }
-                if ($tax_rate < 0) {
-                    throw new Exception("Invalid item tax rate.");
-                }
-    
-                $line_subtotal = $qty * $unit;
-                $line_tax = ($line_subtotal * $tax_rate) / 100.0;
-                $line_total = $line_subtotal + $line_tax;
-    
-                $subtotal += $line_subtotal;
-                $tax_total += $line_tax;
-    
-                $items_calculated[] = [
-                    'product_name' => (string)$item['product_name'],
-                    'quantity'     => $qty,
-                    'unit_price'   => $unit,
-                    'tax_rate'     => $tax_rate,
-                    'tax_amount'   => $line_tax,
-                    'line_total'   => $line_total
-                ];
+                $qty      = (float)$item['quantity'];
+$unit     = (float)$item['unit_price'];
+$tax_rate = (float)$item['tax_rate'];
+
+if ($qty <= 0) throw new Exception("Invalid item quantity.");
+if ($unit < 0) throw new Exception("Invalid item unit price.");
+if ($tax_rate < 0) throw new Exception("Invalid item tax rate.");
+
+$docType = (string)$data['document_type'];
+
+if ($docType === 'CONSUMIDOR_FINAL') {
+    // unit_price is FINAL (tax-included). Split into base + IVA.
+    $unit_base = ($tax_rate > 0)
+        ? ($unit / (1 + ($tax_rate / 100.0)))
+        : $unit;
+
+    $unit_tax = $unit - $unit_base;
+
+    $line_subtotal = $qty * $unit_base;  // net
+    $line_tax      = $qty * $unit_tax;   // iva
+    $line_total    = $qty * $unit;       // charged amount (FINAL)
+} else {
+    // For other docs, keep your original behavior (assume unit_price is NET)
+    $line_subtotal = $qty * $unit;
+    $line_tax      = ($line_subtotal * $tax_rate) / 100.0;
+    $line_total    = $line_subtotal + $line_tax;
+}
+
+$subtotal  += $line_subtotal;
+$tax_total += $line_tax;
+
+$items_calculated[] = [
+    'product_name' => (string)$item['product_name'],
+    'quantity'     => $qty,
+    'unit_price'   => $unit,
+    'tax_rate'     => $tax_rate,
+    'tax_amount'   => $line_tax,
+    'line_total'   => $line_total
+        ];
             }
     
             $grand_total = $subtotal + $tax_total;
-    
+               
             // 2.5️⃣ Payment normalization (NEW)
             $payment_method = isset($data['payment_method'])
                 ? strtoupper(trim((string)$data['payment_method']))
@@ -146,6 +156,20 @@ class JC_Invoice_Service {
                 }
             }
     
+            $sessions_table = $wpdb->prefix . 'jc_register_sessions';
+
+            $session_id = (int)$wpdb->get_var($wpdb->prepare(
+              "SELECT id
+               FROM {$sessions_table}
+               WHERE register_id=%d AND is_open=1
+               ORDER BY opened_at DESC
+               LIMIT 1",
+              (int)$data['register_id']
+            ));
+            if (!$session_id) {
+                throw new Exception("No open register session for this register. Please open the register first.");
+            }
+
             // 3️⃣ Insert invoice (NEW columns included)
             $wpdb->insert('wp_jc_invoices', [
                 'store_id'         => (int)$data['store_id'],
@@ -166,7 +190,8 @@ class JC_Invoice_Service {
                 'card_paid'        => $card_paid,
     
                 'status'           => 'ISSUED',
-                'issued_at'        => current_time('mysql')
+                'issued_at'        => current_time('mysql'),
+                'session_id'       => $session_id ?: null
             ]);
     
             $invoice_id = (int)$wpdb->insert_id;

@@ -35,6 +35,10 @@
   const elReceiptPrint = document.getElementById("jc-receipt-print");
   const elReceiptDone = document.getElementById("jc-receipt-done");
 
+  // Document type DOM (NEW)
+  const elDocRadios = document.querySelectorAll('input[name="jc_doc_type"]');
+  const elDocBadge = document.getElementById("jc-doc-badge");
+
   // State
   let MENUS = [];
   let SIZES = [];
@@ -84,9 +88,24 @@
     const sub = cartSubtotal();
     const afterDiscount = applyDiscount(sub);
     const tot = afterDiscount + feeAmount();
-    elSubtotal.textContent = money(sub);
-    elTotal.textContent = money(tot);
+    if (elSubtotal) elSubtotal.textContent = money(sub);
+    if (elTotal) elTotal.textContent = money(tot);
   }
+
+  // ---------- Document type (NEW) ----------
+  function getDocType() {
+    const checked = document.querySelector('input[name="jc_doc_type"]:checked');
+    const v = (checked?.value || "CONSUMIDOR_FINAL").toUpperCase();
+    return v === "CREDITO_FISCAL" ? "CREDITO_FISCAL" : "CONSUMIDOR_FINAL";
+  }
+
+  function updateDocUI() {
+    const dt = getDocType();
+    if (!elDocBadge) return;
+    elDocBadge.textContent = dt === "CREDITO_FISCAL" ? "Requiere datos fiscales" : "Venta rápida";
+  }
+
+  elDocRadios?.forEach((r) => r.addEventListener("change", updateDocUI));
 
   // Normalize addons into a flat array
   function normalizeAddons(addons) {
@@ -172,12 +191,14 @@
 
       const lines = Array.isArray(dte.cuerpoDocumento) ? dte.cuerpoDocumento : [];
       const rows = lines.length
-        ? lines.map((l) => {
-            const qty = l.cantidad ?? 1;
-            const desc = escapeHtml(l.descripcion ?? "");
-            const price = Number(l.precioUni ?? 0);
-            return `<tr><td>${qty}x ${desc}</td><td style="text-align:right">${money(price)}</td></tr>`;
-          }).join("")
+        ? lines
+            .map((l) => {
+              const qty = l.cantidad ?? 1;
+              const desc = escapeHtml(l.descripcion ?? "");
+              const price = Number(l.precioUni ?? 0);
+              return `<tr><td>${qty}x ${desc}</td><td style="text-align:right">${money(price)}</td></tr>`;
+            })
+            .join("")
         : `<tr><td colspan="2"><em>No items</em></td></tr>`;
 
       const totalPagar = Number(dte.resumen?.totalPagar ?? 0);
@@ -219,12 +240,14 @@
 
     // fallback from soldCart
     const rows = (soldCart || []).length
-      ? soldCart.map((l) => {
-          const qty = Number(l.qty || 1);
-          const name = escapeHtml(l.name || "");
-          const lineTotal = Number(l.unit_price || 0) * qty;
-          return `<tr><td>${qty}x ${name}</td><td style="text-align:right">${money(lineTotal)}</td></tr>`;
-        }).join("")
+      ? soldCart
+          .map((l) => {
+            const qty = Number(l.qty || 1);
+            const name = escapeHtml(l.name || "");
+            const lineTotal = Number(l.unit_price || 0) * qty;
+            return `<tr><td>${qty}x ${name}</td><td style="text-align:right">${money(lineTotal)}</td></tr>`;
+          })
+          .join("")
       : `<tr><td colspan="2"><em>No items</em></td></tr>`;
 
     const sub = soldCart.reduce((s, l) => s + Number(l.unit_price || 0) * Number(l.qty || 1), 0);
@@ -348,8 +371,8 @@
 
   // ---------- data loading ----------
   async function loadBootstrap() {
-    elResult.innerHTML = "";
-    elProducts.innerHTML = "<p>Loading...</p>";
+    if (elResult) elResult.innerHTML = "";
+    if (elProducts) elProducts.innerHTML = "<p>Loading...</p>";
     if (elMenus) elMenus.innerHTML = "";
 
     let boot;
@@ -357,7 +380,7 @@
       boot = await apiGet("/menu");
     } catch (e) {
       console.error(e);
-      elProducts.innerHTML = "<p>Failed to load POS menu.</p>";
+      if (elProducts) elProducts.innerHTML = "<p>Failed to load POS menu.</p>";
       return;
     }
 
@@ -381,13 +404,8 @@
       price: parseFloat(a.price || "0"),
     }));
 
-    // quick debug (remove later)
-    // console.log("BOOTSTRAP.addons:", boot.addons);
-    // console.log("TOPPINGS:", TOPPINGS);
-    // console.log("SYRUPS:", SYRUPS);
-
     if (!MENUS.length) {
-      elProducts.innerHTML = "<p><em>No menus configured yet.</em></p>";
+      if (elProducts) elProducts.innerHTML = "<p><em>No menus configured yet.</em></p>";
       return;
     }
 
@@ -397,14 +415,14 @@
   }
 
   async function loadMenuProducts(menuId) {
-    elProducts.innerHTML = "<p>Loading products...</p>";
+    if (elProducts) elProducts.innerHTML = "<p>Loading products...</p>";
 
     let data;
     try {
       data = await apiGet(`/menu/${menuId}`);
     } catch (e) {
       console.error(e);
-      elProducts.innerHTML = "<p>Failed to load menu products.</p>";
+      if (elProducts) elProducts.innerHTML = "<p>Failed to load menu products.</p>";
       return;
     }
 
@@ -421,7 +439,7 @@
   // ---------- modal ----------
   function getSelectedToppings() {
     const picks = [];
-    elToppings.querySelectorAll("input[type=checkbox]").forEach((cb) => {
+    elToppings?.querySelectorAll("input[type=checkbox]")?.forEach((cb) => {
       if (!cb.checked) return;
       const t = TOPPINGS.find((x) => x.id === cb.dataset.id);
       if (t) picks.push(t);
@@ -432,76 +450,82 @@
   function updateItemTotal() {
     if (!currentProduct) return;
 
-    const sizeOpt = elSize.options[elSize.selectedIndex];
+    const sizeOpt = elSize?.options?.[elSize.selectedIndex];
     const basePrice = parseFloat(sizeOpt?.dataset.price || currentProduct.price || "0");
 
-    const syrupOpt = elFlavor.options[elFlavor.selectedIndex];
+    const syrupOpt = elFlavor?.options?.[elFlavor.selectedIndex];
     const syrupExtra = parseFloat(syrupOpt?.dataset.price || "0");
 
     const tops = getSelectedToppings().reduce((s, t) => s + (t.price || 0), 0);
-    elItemTotal.textContent = money(basePrice + syrupExtra + tops);
+    if (elItemTotal) elItemTotal.textContent = money(basePrice + syrupExtra + tops);
   }
 
   function openModal(product) {
     currentProduct = product;
-    elModalTitle.textContent = product.name;
+    if (elModalTitle) elModalTitle.textContent = product.name;
 
     // SYRUP select
-    elFlavor.innerHTML = "";
-    const optDefault = document.createElement("option");
-    optDefault.value = "";
-    optDefault.dataset.price = "0";
-    optDefault.textContent = "Default";
-    elFlavor.appendChild(optDefault);
+    if (elFlavor) {
+      elFlavor.innerHTML = "";
+      const optDefault = document.createElement("option");
+      optDefault.value = "";
+      optDefault.dataset.price = "0";
+      optDefault.textContent = "Default";
+      elFlavor.appendChild(optDefault);
 
-    SYRUPS.forEach((f) => {
-      const opt = document.createElement("option");
-      opt.value = f.id;
-      opt.dataset.price = String(f.price || 0);
-      opt.textContent = `${f.name} (+${money(f.price)})`;
-      elFlavor.appendChild(opt);
-    });
+      SYRUPS.forEach((f) => {
+        const opt = document.createElement("option");
+        opt.value = f.id;
+        opt.dataset.price = String(f.price || 0);
+        opt.textContent = `${f.name} (+${money(f.price)})`;
+        elFlavor.appendChild(opt);
+      });
+    }
 
     // Sizes
-    elSize.innerHTML = "";
-    const base = parseFloat(product.price || "0");
-    if (SIZES.length) {
-      SIZES.forEach((s) => {
-        const delta = parseFloat(s.price_delta || "0");
-        const finalPrice = Math.round((base + delta) * 100) / 100;
+    if (elSize) {
+      elSize.innerHTML = "";
+      const base = parseFloat(product.price || "0");
+      if (SIZES.length) {
+        SIZES.forEach((s) => {
+          const delta = parseFloat(s.price_delta || "0");
+          const finalPrice = Math.round((base + delta) * 100) / 100;
 
+          const opt = document.createElement("option");
+          opt.value = String(s.id);
+          opt.dataset.price = String(finalPrice);
+          opt.textContent = `${s.label} (${money(finalPrice)})`;
+          if (s.is_default === 1) opt.selected = true;
+          elSize.appendChild(opt);
+        });
+      } else {
         const opt = document.createElement("option");
-        opt.value = String(s.id);
-        opt.dataset.price = String(finalPrice);
-        opt.textContent = `${s.label} (${money(finalPrice)})`;
-        if (s.is_default === 1) opt.selected = true;
+        opt.value = "";
+        opt.dataset.price = String(base);
+        opt.textContent = `Default (${money(base)})`;
         elSize.appendChild(opt);
-      });
-    } else {
-      const opt = document.createElement("option");
-      opt.value = "";
-      opt.dataset.price = String(base);
-      opt.textContent = `Default (${money(base)})`;
-      elSize.appendChild(opt);
+      }
     }
 
     // Toppings
-    elToppings.innerHTML = "";
-    TOPPINGS.forEach((t) => {
-      const row = document.createElement("label");
-      row.className = "jc-top-row";
-      row.innerHTML = `<input type="checkbox" data-id="${t.id}"> ${t.name} (+${money(t.price)})`;
-      elToppings.appendChild(row);
-    });
+    if (elToppings) {
+      elToppings.innerHTML = "";
+      TOPPINGS.forEach((t) => {
+        const row = document.createElement("label");
+        row.className = "jc-top-row";
+        row.innerHTML = `<input type="checkbox" data-id="${t.id}"> ${t.name} (+${money(t.price)})`;
+        elToppings.appendChild(row);
+      });
+    }
 
     updateItemTotal();
-    elModal.classList.remove("jc-hidden");
-    elModal.setAttribute("aria-hidden", "false");
+    elModal?.classList.remove("jc-hidden");
+    elModal?.setAttribute("aria-hidden", "false");
   }
 
   function closeModal() {
-    elModal.classList.add("jc-hidden");
-    elModal.setAttribute("aria-hidden", "true");
+    elModal?.classList.add("jc-hidden");
+    elModal?.setAttribute("aria-hidden", "true");
     currentProduct = null;
   }
 
@@ -510,10 +534,11 @@
     if (!CART.length) return;
 
     const soldCart = CART.map((x) => JSON.parse(JSON.stringify(x)));
-    elResult.innerHTML = "<p>Processing...</p>";
+    if (elResult) elResult.innerHTML = "<p>Processing...</p>";
 
     const payload = {
       cart: CART,
+      document_type: getDocType(), // ✅ NEW
       discount_type: elDiscountType?.value || "none",
       discount_value: parseFloat(elDiscountValue?.value || "0") || 0,
       fee_label: elFeeLabel?.value || "",
@@ -530,12 +555,12 @@
     } catch (err) {
       console.error("Checkout error:", err);
       const msg = err?.data?.message || err?.message || "Request failed";
-      elResult.innerHTML = `<p class="jc-bad">Error: ${escapeHtml(msg)}</p>`;
+      if (elResult) elResult.innerHTML = `<p class="jc-bad">Error: ${escapeHtml(msg)}</p>`;
       return;
     }
 
     if (!res?.success) {
-      elResult.innerHTML = `<p class="jc-bad">Error: ${escapeHtml(res?.error || "Unknown")}</p>`;
+      if (elResult) elResult.innerHTML = `<p class="jc-bad">Error: ${escapeHtml(res?.error || "Unknown")}</p>`;
       return;
     }
 
@@ -551,20 +576,22 @@
     if (elFeeValue) elFeeValue.value = "0";
     updateTotalsUI();
 
-    elResult.innerHTML = `
-      <div class="jc-good">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-          <strong>Sale OK</strong>
-          <button type="button" class="button" id="jc-open-receipt">Receipt</button>
+    if (elResult) {
+      elResult.innerHTML = `
+        <div class="jc-good">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <strong>Sale OK</strong>
+            <button type="button" class="button" id="jc-open-receipt">Receipt</button>
+          </div>
+          <div style="margin-top:6px;">Ticket: ${escapeHtml(String(res.ticket_number ?? ""))}</div>
+          <div>Invoice: ${escapeHtml(String(res.invoice_id ?? ""))}</div>
+          <details style="margin-top:8px">
+            <summary>MH response</summary>
+            <pre style="white-space:pre-wrap">${escapeHtml(JSON.stringify(mh, null, 2))}</pre>
+          </details>
         </div>
-        <div style="margin-top:6px;">Ticket: ${escapeHtml(String(res.ticket_number ?? ""))}</div>
-        <div>Invoice: ${escapeHtml(String(res.invoice_id ?? ""))}</div>
-        <details style="margin-top:8px">
-          <summary>MH response</summary>
-          <pre style="white-space:pre-wrap">${escapeHtml(JSON.stringify(mh, null, 2))}</pre>
-        </details>
-      </div>
-    `;
+      `;
+    }
 
     document.getElementById("jc-open-receipt")?.addEventListener("click", () => {
       openReceiptModal(receiptHtml);
@@ -572,9 +599,6 @@
 
     // Print button prints the same receipt html
     if (elReceiptPrint) elReceiptPrint.onclick = () => printReceipt(receiptHtml);
-
-    // optional: auto-open receipt
-    // openReceiptModal(receiptHtml);
   }
 
   // ---------- events ----------
@@ -586,11 +610,11 @@
   document.getElementById("jc-add-to-cart")?.addEventListener("click", () => {
     if (!currentProduct) return;
 
-    const sizeOpt = elSize.options[elSize.selectedIndex];
+    const sizeOpt = elSize?.options?.[elSize.selectedIndex];
     const sizePrice = parseFloat(sizeOpt?.dataset.price || currentProduct.price || "0");
     const sizeLabel = sizeOpt?.textContent ? sizeOpt.textContent.split(" (")[0] : "Default";
 
-    const syrupOpt = elFlavor.options[elFlavor.selectedIndex];
+    const syrupOpt = elFlavor?.options?.[elFlavor.selectedIndex];
     const syrupLabel = syrupOpt?.value ? syrupOpt.textContent.split(" (")[0] : "";
     const syrupExtra = parseFloat(syrupOpt?.dataset.price || "0");
 
@@ -626,6 +650,7 @@
   elFeeValue?.addEventListener("input", renderCart);
 
   // boot
+  updateDocUI(); // ✅ NEW
   loadBootstrap();
   renderCart();
 })();

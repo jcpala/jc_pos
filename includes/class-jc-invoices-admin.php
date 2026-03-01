@@ -2,18 +2,15 @@
 
 class JC_Invoices_Admin {
 
-    /**
-     * Change this if your parent menu slug is different.
-     * If you see front-end 404 when clicking the menu, this is the first thing to fix.
-     */
-    //private const PARENT_SLUG = 'jc-correlativos';
-    private const PARENT_SLUG = 'class-jc-invoices-admin.php';
-    public static function init() {
+    // Set this to the parent slug you already have working:
+    // From your screenshot: 'jc-correlativos' is correct.
+    private const PARENT_SLUG = 'jc-correlativos';
+
+    public static function init(): void {
         add_action('admin_menu', [self::class, 'menu']);
     }
 
-    public static function menu() {
-        // Visible list page
+    public static function menu(): void {
         add_submenu_page(
             self::PARENT_SLUG,
             'Invoices',
@@ -39,36 +36,48 @@ class JC_Invoices_Admin {
         return $wpdb->prefix . $name;
     }
 
-    private static function str_from_get(string $key): string {
-        // Never return null
+    private static function get_s(string $key): string {
         return isset($_GET[$key]) ? (string)sanitize_text_field((string)$_GET[$key]) : '';
     }
 
-    private static function int_from_get(string $key): int {
+    private static function get_i(string $key): int {
         return isset($_GET[$key]) ? (int)$_GET[$key] : 0;
     }
 
-    public static function page_invoices() {
+    private static function admin_url_page(array $args): string {
+        // Build admin URL without add_query_arg() to avoid null edge cases.
+        // Force all values to strings and drop nulls.
+        foreach ($args as $k => $v) {
+            if ($v === null) {
+                unset($args[$k]);
+                continue;
+            }
+            $args[$k] = (string)$v;
+        }
+        $qs = http_build_query($args, '', '&', PHP_QUERY_RFC3986);
+        return admin_url('admin.php') . ($qs ? ('?' . $qs) : '');
+    }
+
+    public static function page_invoices(): void {
         if (!current_user_can('manage_options')) wp_die('No permission.');
         global $wpdb;
 
         $tbl_invoices  = self::t('jc_invoices');
         $tbl_registers = self::t('jc_registers');
 
-        // Filters (strings always, never null)
-        $doc    = self::str_from_get('doc_type');
-        $status = self::str_from_get('status');
-        $mh     = self::str_from_get('mh_status');
-        $from   = self::str_from_get('date_from'); // YYYY-MM-DD
-        $to     = self::str_from_get('date_to');   // YYYY-MM-DD
-        $q      = self::str_from_get('q');
-        $reg    = self::int_from_get('register_id');
+        // Filters
+        $doc    = self::get_s('doc_type');
+        $status = self::get_s('status');
+        $mh     = self::get_s('mh_status');
+        $from   = self::get_s('date_from'); // YYYY-MM-DD
+        $to     = self::get_s('date_to');   // YYYY-MM-DD
+        $q      = self::get_s('q');
+        $reg    = self::get_i('register_id');
 
-        $page     = max(1, self::int_from_get('paged'));
+        $page     = max(1, self::get_i('paged'));
         $per_page = 50;
         $offset   = ($page - 1) * $per_page;
 
-        // Whitelists
         $allowed_doc    = ['CONSUMIDOR_FINAL','CREDITO_FISCAL','NOTA_CREDITO'];
         $allowed_status = ['ISSUED','VOIDED','REFUNDED'];
         $allowed_mh     = ['PENDING','SENT','FAILED','REJECTED'];
@@ -97,7 +106,6 @@ class JC_Invoices_Admin {
             $where .= "AND i.register_id = %d ";
             $params[] = $reg;
         }
-
         if ($from !== '') {
             $where .= "AND DATE(i.issued_at) >= %s ";
             $params[] = $from;
@@ -123,12 +131,12 @@ class JC_Invoices_Admin {
             $params[] = $like;
         }
 
-        // Dropdown registers
+        // Registers dropdown
         $registers = $wpdb->get_results("SELECT id, register_name FROM {$tbl_registers} ORDER BY register_name ASC");
 
         // Count
-        $sql_count  = "SELECT COUNT(*) FROM {$tbl_invoices} i {$where}";
-        $total_rows = (int)$wpdb->get_var($wpdb->prepare($sql_count, ...$params));
+        $sql_count   = "SELECT COUNT(*) FROM {$tbl_invoices} i {$where}";
+        $total_rows  = (int)$wpdb->get_var($wpdb->prepare($sql_count, ...$params));
         $total_pages = max(1, (int)ceil($total_rows / $per_page));
 
         // Rows
@@ -151,19 +159,19 @@ class JC_Invoices_Admin {
             $wpdb->prepare($sql_rows, ...array_merge($params, [$per_page, $offset]))
         );
 
-        // Base args for pagination (strings only)
+        // Base args for links
         $base_args = [
             'page'        => 'jc-invoices',
-            'doc_type'    => (string)$doc,
-            'status'      => (string)$status,
-            'mh_status'   => (string)$mh,
+            'doc_type'    => $doc,
+            'status'      => $status,
+            'mh_status'   => $mh,
             'register_id' => (string)$reg,
-            'date_from'   => (string)$from,
-            'date_to'     => (string)$to,
-            'q'           => (string)$q,
+            'date_from'   => $from,
+            'date_to'     => $to,
+            'q'           => $q,
         ];
 
-        $reset_url = admin_url('admin.php?page=jc-invoices');
+        $reset_url = self::admin_url_page(['page' => 'jc-invoices']);
         ?>
         <div class="wrap">
             <h1>Invoices</h1>
@@ -176,7 +184,7 @@ class JC_Invoices_Admin {
                     <select name="doc_type">
                         <option value="">All</option>
                         <?php foreach ($allowed_doc as $t): ?>
-                            <option value="<?= esc_attr($t) ?>" <?= selected($doc, $t, false) ?>><?= esc_html($t) ?></option>
+                            <option value="<?php echo esc_attr($t); ?>" <?php selected($doc, $t); ?>><?php echo esc_html($t); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -186,7 +194,7 @@ class JC_Invoices_Admin {
                     <select name="status">
                         <option value="">All</option>
                         <?php foreach ($allowed_status as $s): ?>
-                            <option value="<?= esc_attr($s) ?>" <?= selected($status, $s, false) ?>><?= esc_html($s) ?></option>
+                            <option value="<?php echo esc_attr($s); ?>" <?php selected($status, $s); ?>><?php echo esc_html($s); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -196,7 +204,7 @@ class JC_Invoices_Admin {
                     <select name="mh_status">
                         <option value="">All</option>
                         <?php foreach ($allowed_mh as $s): ?>
-                            <option value="<?= esc_attr($s) ?>" <?= selected($mh, $s, false) ?>><?= esc_html($s) ?></option>
+                            <option value="<?php echo esc_attr($s); ?>" <?php selected($mh, $s); ?>><?php echo esc_html($s); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -206,35 +214,37 @@ class JC_Invoices_Admin {
                     <select name="register_id">
                         <option value="0">All</option>
                         <?php foreach ($registers as $r): ?>
-                            <option value="<?= (int)$r->id ?>" <?= selected($reg, (int)$r->id, false) ?>><?= esc_html($r->register_name) ?></option>
+                            <option value="<?php echo (int)$r->id; ?>" <?php selected($reg, (int)$r->id); ?>>
+                                <?php echo esc_html($r->register_name); ?>
+                            </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
 
                 <div>
                     <label><strong>From</strong></label><br>
-                    <input type="date" name="date_from" value="<?= esc_attr($from) ?>">
+                    <input type="date" name="date_from" value="<?php echo esc_attr($from); ?>">
                 </div>
 
                 <div>
                     <label><strong>To</strong></label><br>
-                    <input type="date" name="date_to" value="<?= esc_attr($to) ?>">
+                    <input type="date" name="date_to" value="<?php echo esc_attr($to); ?>">
                 </div>
 
                 <div style="min-width:240px;">
                     <label><strong>Search</strong></label><br>
-                    <input type="text" name="q" value="<?= esc_attr($q) ?>" placeholder="Ticket, ID, NIT, Name, CodigoGen" style="width:240px;">
+                    <input type="text" name="q" value="<?php echo esc_attr($q); ?>" placeholder="Ticket, ID, NIT, Name, CodigoGen" style="width:240px;">
                 </div>
 
                 <div>
                     <button class="button button-primary">Filter</button>
-                    <a class="button" href="<?= esc_url($reset_url) ?>">Reset</a>
+                    <a class="button" href="<?php echo esc_url($reset_url); ?>">Reset</a>
                 </div>
             </form>
 
             <p style="margin:10px 0;">
-                <strong>Total:</strong> <?= (int)$total_rows ?> &nbsp; | &nbsp;
-                <strong>Page:</strong> <?= (int)$page ?> / <?= (int)$total_pages ?>
+                <strong>Total:</strong> <?php echo (int)$total_rows; ?> &nbsp; | &nbsp;
+                <strong>Page:</strong> <?php echo (int)$page; ?> / <?php echo (int)$total_pages; ?>
             </p>
 
             <table class="widefat striped">
@@ -257,29 +267,29 @@ class JC_Invoices_Admin {
                 <?php if (empty($rows)): ?>
                     <tr><td colspan="11">No invoices found.</td></tr>
                 <?php else: foreach ($rows as $row):
-                    $receipt_url = admin_url('admin.php?page=jc-invoice-receipt&invoice_id='.(int)$row->id);
+                    $receipt_url = self::admin_url_page(['page' => 'jc-invoice-receipt', 'invoice_id' => (int)$row->id]);
                     $cash_paid = (float)($row->cash_paid ?? 0);
                     $card_paid = (float)($row->card_paid ?? 0);
                 ?>
                     <tr>
-                        <td><a href="<?= esc_url($receipt_url) ?>"><strong>#<?= (int)$row->id ?></strong></a></td>
-                        <td><?= esc_html((string)$row->issued_at) ?></td>
-                        <td><?= esc_html((string)$row->document_type) ?></td>
-                        <td><?= (int)$row->register_id ?></td>
-                        <td><a href="<?= esc_url($receipt_url) ?>"><?= (int)$row->ticket_number ?></a></td>
-                        <td><?= esc_html(number_format((float)$row->total, 2)) ?></td>
+                        <td><a href="<?php echo esc_url($receipt_url); ?>"><strong>#<?php echo (int)$row->id; ?></strong></a></td>
+                        <td><?php echo esc_html((string)$row->issued_at); ?></td>
+                        <td><?php echo esc_html((string)$row->document_type); ?></td>
+                        <td><?php echo (int)$row->register_id; ?></td>
+                        <td><a href="<?php echo esc_url($receipt_url); ?>"><?php echo (int)$row->ticket_number; ?></a></td>
+                        <td><?php echo esc_html(number_format((float)$row->total, 2)); ?></td>
                         <td>
-                            <?= esc_html((string)($row->payment_method ?? '')) ?>
+                            <?php echo esc_html((string)($row->payment_method ?? '')); ?>
                             <br><small>
-                                C: <?= esc_html(number_format($cash_paid, 2)) ?> |
-                                K: <?= esc_html(number_format($card_paid, 2)) ?>
+                                C: <?php echo esc_html(number_format($cash_paid, 2)); ?> |
+                                K: <?php echo esc_html(number_format($card_paid, 2)); ?>
                             </small>
                         </td>
-                        <td><?= esc_html((string)$row->status) ?></td>
-                        <td><?= esc_html((string)$row->mh_status) ?></td>
-                        <td><?= (int)$row->mh_attempts ?></td>
+                        <td><?php echo esc_html((string)$row->status); ?></td>
+                        <td><?php echo esc_html((string)$row->mh_status); ?></td>
+                        <td><?php echo (int)$row->mh_attempts; ?></td>
                         <td style="max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                            <?= esc_html((string)($row->mh_codigo_generacion ?: '-')) ?>
+                            <?php echo esc_html((string)($row->mh_codigo_generacion ?: '-')); ?>
                         </td>
                     </tr>
                 <?php endforeach; endif; ?>
@@ -290,14 +300,13 @@ class JC_Invoices_Admin {
                 $prev = max(1, $page - 1);
                 $next = min($total_pages, $page + 1);
 
-                $base_url = admin_url('admin.php');
-                $url_prev = add_query_arg(array_merge($base_args, ['paged' => (string)$prev]), $base_url);
-                $url_next = add_query_arg(array_merge($base_args, ['paged' => (string)$next]), $base_url);
+                $url_prev = self::admin_url_page(array_merge($base_args, ['paged' => (string)$prev]));
+                $url_next = self::admin_url_page(array_merge($base_args, ['paged' => (string)$next]));
             ?>
                 <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
-                    <a class="button <?= $page <= 1 ? 'disabled' : '' ?>" href="<?= esc_url($url_prev) ?>">« Prev</a>
-                    <span>Page <?= (int)$page ?> of <?= (int)$total_pages ?></span>
-                    <a class="button <?= $page >= $total_pages ? 'disabled' : '' ?>" href="<?= esc_url($url_next) ?>">Next »</a>
+                    <a class="button <?php echo ($page <= 1 ? 'disabled' : ''); ?>" href="<?php echo esc_url($url_prev); ?>">« Prev</a>
+                    <span>Page <?php echo (int)$page; ?> of <?php echo (int)$total_pages; ?></span>
+                    <a class="button <?php echo ($page >= $total_pages ? 'disabled' : ''); ?>" href="<?php echo esc_url($url_next); ?>">Next »</a>
                 </div>
             <?php endif; ?>
 
@@ -305,7 +314,7 @@ class JC_Invoices_Admin {
         <?php
     }
 
-    public static function page_receipt() {
+    public static function page_receipt(): void {
         if (!current_user_can('manage_options')) wp_die('No permission.');
         global $wpdb;
 
@@ -326,11 +335,10 @@ class JC_Invoices_Admin {
             ARRAY_A
         );
 
-        // Back URL (never null)
-        $ref = wp_get_referer();
-        $back_url = (is_string($ref) && $ref !== '') ? $ref : admin_url('admin.php?page=jc-invoices');
+        // Always go back to the invoices list (no referer)
+        $back_url = self::admin_url_page(['page' => 'jc-invoices']);
 
-        // Re-send MH link (uses your existing handler in JC_MH_Queue_Admin)
+        // Re-send MH link (uses your existing handler)
         $resend_url = wp_nonce_url(
             admin_url('admin-post.php?action=jc_mh_retry_invoice&invoice_id='.(int)$invoice_id),
             'jc_mh_retry_invoice_' . (int)$invoice_id
@@ -338,14 +346,13 @@ class JC_Invoices_Admin {
 
         $cash_paid = (float)($inv['cash_paid'] ?? 0);
         $card_paid = (float)($inv['card_paid'] ?? 0);
-
         ?>
         <div class="wrap">
             <p>
-                <a class="button" href="<?= esc_url((string)$back_url) ?>">← Back</a>
+                <a class="button" href="<?php echo esc_url($back_url); ?>">← Back</a>
 
                 <?php if (($inv['mh_status'] ?? '') !== 'SENT'): ?>
-                    <a class="button button-secondary" href="<?= esc_url($resend_url) ?>"
+                    <a class="button button-secondary" href="<?php echo esc_url($resend_url); ?>"
                        onclick="return confirm('Re-send this invoice to MH now?')">
                         Re-send to MH
                     </a>
@@ -359,17 +366,17 @@ class JC_Invoices_Admin {
 
                 <table class="widefat" style="margin-bottom:12px;">
                     <tbody>
-                    <tr><th style="width:200px;">Invoice ID</th><td>#<?= (int)$inv['id'] ?></td></tr>
-                    <tr><th>Ticket</th><td><?= (int)($inv['ticket_number'] ?? 0) ?></td></tr>
-                    <tr><th>Document Type</th><td><?= esc_html((string)($inv['document_type'] ?? '')) ?></td></tr>
-                    <tr><th>Store / Register</th><td><?= (int)($inv['store_id'] ?? 0) ?> / <?= (int)($inv['register_id'] ?? 0) ?></td></tr>
-                    <tr><th>Issued</th><td><?= esc_html((string)($inv['issued_at'] ?? '')) ?></td></tr>
-                    <tr><th>Status</th><td><?= esc_html((string)($inv['status'] ?? '')) ?></td></tr>
+                    <tr><th style="width:200px;">Invoice ID</th><td>#<?php echo (int)$inv['id']; ?></td></tr>
+                    <tr><th>Ticket</th><td><?php echo (int)($inv['ticket_number'] ?? 0); ?></td></tr>
+                    <tr><th>Document Type</th><td><?php echo esc_html((string)($inv['document_type'] ?? '')); ?></td></tr>
+                    <tr><th>Store / Register</th><td><?php echo (int)($inv['store_id'] ?? 0); ?> / <?php echo (int)($inv['register_id'] ?? 0); ?></td></tr>
+                    <tr><th>Issued</th><td><?php echo esc_html((string)($inv['issued_at'] ?? '')); ?></td></tr>
+                    <tr><th>Status</th><td><?php echo esc_html((string)($inv['status'] ?? '')); ?></td></tr>
                     <tr><th>Payment</th>
                         <td>
-                            <?= esc_html((string)($inv['payment_method'] ?? '')) ?>
-                            (Cash <?= esc_html(number_format($cash_paid, 2)) ?> /
-                             Card <?= esc_html(number_format($card_paid, 2)) ?>)
+                            <?php echo esc_html((string)($inv['payment_method'] ?? '')); ?>
+                            (Cash <?php echo esc_html(number_format($cash_paid, 2)); ?> /
+                             Card <?php echo esc_html(number_format($card_paid, 2)); ?>)
                         </td>
                     </tr>
                     </tbody>
@@ -378,9 +385,9 @@ class JC_Invoices_Admin {
                 <h3>Customer</h3>
                 <table class="widefat" style="margin-bottom:12px;">
                     <tbody>
-                    <tr><th style="width:200px;">Name</th><td><?= esc_html((string)($inv['customer_name'] ?: 'CONSUMIDOR FINAL')) ?></td></tr>
-                    <tr><th>NIT</th><td><?= esc_html((string)($inv['customer_nit'] ?: '-')) ?></td></tr>
-                    <tr><th>Address</th><td><?= esc_html((string)($inv['customer_address'] ?: '-')) ?></td></tr>
+                    <tr><th style="width:200px;">Name</th><td><?php echo esc_html((string)($inv['customer_name'] ?: 'CONSUMIDOR FINAL')); ?></td></tr>
+                    <tr><th>NIT</th><td><?php echo esc_html((string)($inv['customer_nit'] ?: '-')); ?></td></tr>
+                    <tr><th>Address</th><td><?php echo esc_html((string)($inv['customer_address'] ?: '-')); ?></td></tr>
                     </tbody>
                 </table>
 
@@ -401,12 +408,12 @@ class JC_Invoices_Admin {
                         <tr><td colspan="6">No items found.</td></tr>
                     <?php else: foreach ($items as $idx => $it): ?>
                         <tr>
-                            <td><?= (int)($idx + 1) ?></td>
-                            <td><?= esc_html((string)($it['product_name'] ?? '')) ?></td>
-                            <td style="text-align:right;"><?= esc_html((string)($it['quantity'] ?? '')) ?></td>
-                            <td style="text-align:right;"><?= esc_html(number_format((float)($it['unit_price'] ?? 0), 2)) ?></td>
-                            <td style="text-align:right;"><?= esc_html(number_format((float)($it['tax_amount'] ?? 0), 2)) ?></td>
-                            <td style="text-align:right;"><?= esc_html(number_format((float)($it['line_total'] ?? 0), 2)) ?></td>
+                            <td><?php echo (int)($idx + 1); ?></td>
+                            <td><?php echo esc_html((string)($it['product_name'] ?? '')); ?></td>
+                            <td style="text-align:right;"><?php echo esc_html((string)($it['quantity'] ?? '')); ?></td>
+                            <td style="text-align:right;"><?php echo esc_html(number_format((float)($it['unit_price'] ?? 0), 2)); ?></td>
+                            <td style="text-align:right;"><?php echo esc_html(number_format((float)($it['tax_amount'] ?? 0), 2)); ?></td>
+                            <td style="text-align:right;"><?php echo esc_html(number_format((float)($it['line_total'] ?? 0), 2)); ?></td>
                         </tr>
                     <?php endforeach; endif; ?>
                     </tbody>
@@ -415,21 +422,21 @@ class JC_Invoices_Admin {
                 <h3>Totals</h3>
                 <table class="widefat" style="margin-bottom:12px;">
                     <tbody>
-                    <tr><th style="width:200px;">Subtotal</th><td><?= esc_html(number_format((float)($inv['subtotal'] ?? 0), 2)) ?></td></tr>
-                    <tr><th>Tax</th><td><?= esc_html(number_format((float)($inv['tax_amount'] ?? 0), 2)) ?></td></tr>
-                    <tr><th>Total</th><td><strong><?= esc_html(number_format((float)($inv['total'] ?? 0), 2)) ?></strong></td></tr>
+                    <tr><th style="width:200px;">Subtotal</th><td><?php echo esc_html(number_format((float)($inv['subtotal'] ?? 0), 2)); ?></td></tr>
+                    <tr><th>Tax</th><td><?php echo esc_html(number_format((float)($inv['tax_amount'] ?? 0), 2)); ?></td></tr>
+                    <tr><th>Total</th><td><strong><?php echo esc_html(number_format((float)($inv['total'] ?? 0), 2)); ?></strong></td></tr>
                     </tbody>
                 </table>
 
                 <h3>MH</h3>
                 <table class="widefat">
                     <tbody>
-                    <tr><th style="width:200px;">MH Status</th><td><?= esc_html((string)($inv['mh_status'] ?? '-')) ?></td></tr>
-                    <tr><th>Estado</th><td><?= esc_html((string)($inv['mh_estado'] ?? '-')) ?></td></tr>
-                    <tr><th>Código Generación</th><td><?= esc_html((string)($inv['mh_codigo_generacion'] ?? '-')) ?></td></tr>
-                    <tr><th>Sello Recibido</th><td><?= esc_html((string)($inv['mh_sello_recibido'] ?? '-')) ?></td></tr>
-                    <tr><th>Código Msg</th><td><?= esc_html((string)($inv['mh_codigo_msg'] ?? '-')) ?></td></tr>
-                    <tr><th>Descripción</th><td><?= esc_html((string)(($inv['mh_descripcion_msg'] ?? '') ?: ($inv['mh_last_error'] ?? '-') )) ?></td></tr>
+                    <tr><th style="width:200px;">MH Status</th><td><?php echo esc_html((string)($inv['mh_status'] ?? '-')); ?></td></tr>
+                    <tr><th>Estado</th><td><?php echo esc_html((string)($inv['mh_estado'] ?? '-')); ?></td></tr>
+                    <tr><th>Código Generación</th><td><?php echo esc_html((string)($inv['mh_codigo_generacion'] ?? '-')); ?></td></tr>
+                    <tr><th>Sello Recibido</th><td><?php echo esc_html((string)($inv['mh_sello_recibido'] ?? '-')); ?></td></tr>
+                    <tr><th>Código Msg</th><td><?php echo esc_html((string)($inv['mh_codigo_msg'] ?? '-')); ?></td></tr>
+                    <tr><th>Descripción</th><td><?php echo esc_html((string)((($inv['mh_descripcion_msg'] ?? '') !== '') ? $inv['mh_descripcion_msg'] : ($inv['mh_last_error'] ?? '-'))); ?></td></tr>
                     </tbody>
                 </table>
             </div>
