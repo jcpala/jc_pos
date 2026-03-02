@@ -20,6 +20,10 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-wc-checkout-fields.php'
 require_once plugin_dir_path(__FILE__) . 'includes/class-wc-fiscal-integration.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-wc-register-fields.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-register-session-service.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-customer-service.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-jc-customers-admin.php';
+
+JC_Customers_Admin::init();
 
 add_action('init', ['JC_Correlativo_Admin', 'init']);
 add_action('init', ['JC_WC_Checkout_Fields', 'init']);

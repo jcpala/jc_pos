@@ -535,10 +535,15 @@
 
     const soldCart = CART.map((x) => JSON.parse(JSON.stringify(x)));
     if (elResult) elResult.innerHTML = "<p>Processing...</p>";
+    
+    const docType =
+    document.querySelector('input[name="jc_doc_type"]:checked')?.value ||
+    "CONSUMIDOR_FINAL"
+
 
     const payload = {
       cart: CART,
-      document_type: getDocType(), // ✅ NEW
+      document_type: getDocType(),
       discount_type: elDiscountType?.value || "none",
       discount_value: parseFloat(elDiscountValue?.value || "0") || 0,
       fee_label: elFeeLabel?.value || "",

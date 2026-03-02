@@ -34,7 +34,7 @@ class JC_REST_Register {
         ]
       ],
     ]);
-
+    
     // Checkout
     register_rest_route('jc-pos/v1', '/checkout', [
       'methods'  => 'POST',
@@ -47,6 +47,99 @@ class JC_REST_Register {
       ],
     ]);
   }
+
+  function jc_pos_api_checkout(WP_REST_Request $request) {
+    if (!current_user_can('manage_woocommerce')) {
+        return new WP_REST_Response(['success' => false, 'error' => 'No permission.'], 403);
+    }
+
+    $params = $request->get_json_params();
+    if (!is_array($params)) $params = [];
+
+    // ---- document type (NEW) ----
+    $document_type = strtoupper(trim((string)($params['document_type'] ?? 'CONSUMIDOR_FINAL')));
+    $allowed_doc = ['CONSUMIDOR_FINAL', 'CREDITO_FISCAL'];
+    if (!in_array($document_type, $allowed_doc, true)) {
+        $document_type = 'CONSUMIDOR_FINAL';
+    }
+
+    // ---- cart validation ----
+    $cart = $params['cart'] ?? [];
+    if (empty($cart) || !is_array($cart)) {
+        return new WP_REST_Response(['success' => false, 'error' => 'Cart is empty.'], 400);
+    }
+
+    $store_id    = 1; // or derive from settings
+    $register_id = (int) get_option('jc_active_register_id', 1); // or however you store this
+
+    // discount/fee from JS (optional)
+    $discount_type  = (string)($params['discount_type'] ?? 'none');
+    $discount_value = (float)($params['discount_value'] ?? 0);
+    $fee_label      = (string)($params['fee_label'] ?? '');
+    $fee_value      = (float)($params['fee_value'] ?? 0);
+
+    // ---- build invoice items ----
+    // IMPORTANT: Your create_invoice expects items with unit_price + tax_rate (percent).
+    // For CONSUMIDOR_FINAL you said UI price already includes IVA, so:
+    // - set tax_rate = 0 (or keep 13 but use your updated CF logic in create_invoice)
+    // For now we keep tax_rate = 0 for CF so invoice.total = UI total.
+    $items = [];
+    foreach ($cart as $line) {
+        $qty = (float)($line['qty'] ?? 1);
+        $name = (string)($line['name'] ?? '');
+        $unit_price = (float)($line['unit_price'] ?? 0);
+
+        if ($qty <= 0 || $unit_price < 0 || $name === '') continue;
+
+        $tax_rate = ($document_type === 'CREDITO_FISCAL') ? 13.0 : 0.0;
+
+        $items[] = [
+            'product_name' => $name,
+            'quantity'     => $qty,
+            'unit_price'   => $unit_price,
+            'tax_rate'     => $tax_rate,
+        ];
+    }
+
+    if (empty($items)) {
+        return new WP_REST_Response(['success' => false, 'error' => 'No valid items.'], 400);
+    }
+
+    // ---- create invoice ----
+    $data = [
+        'store_id'      => $store_id,
+        'register_id'   => $register_id,
+        'document_type' => $document_type,
+
+        // optional customer fields (later you’ll fill these when you add customer modal)
+        'customer_name'    => null,
+        'customer_nit'     => null,
+        'customer_address' => null,
+
+        // payment info (optional; your create_invoice handles defaults)
+        // 'payment_method' => 'CASH',
+        // 'cash_paid'      => 0,
+        // 'card_paid'      => 0,
+
+        'items' => $items,
+    ];
+
+    $inv = JC_Invoice_Service::create_invoice($data);
+    if (empty($inv['success'])) {
+        return new WP_REST_Response(['success' => false, 'error' => $inv['error'] ?? 'Invoice failed'], 500);
+    }
+
+    // If you also send to MH here, keep your existing sender logic.
+    // Return what JS expects:
+    return new WP_REST_Response([
+        'success'       => true,
+        'invoice_id'    => (int)$inv['invoice_id'],
+        'ticket_number' => (int)$inv['ticket_number'],
+        'document_type' => $document_type,
+        // 'mh' => $mh_response,
+        // 'dte_json' => $dte,
+    ], 200);
+}
 
   /**
    * GET /jc-pos/v1/menu
@@ -181,11 +274,20 @@ class JC_REST_Register {
    * Creates invoice via JC_Invoice_Service and sends to MH via JC_MH_Sender_Service (best-effort)
    */
   public static function checkout(WP_REST_Request $req) {
+
     $body = $req->get_json_params();
+    if (!is_array($body)) $body = [];
+
+    // Document type from UI
+    $document_type = strtoupper(trim((string)($body['document_type'] ?? 'CONSUMIDOR_FINAL')));
+    $allowed_doc = ['CONSUMIDOR_FINAL', 'CREDITO_FISCAL'];
+    if (!in_array($document_type, $allowed_doc, true)) {
+        $document_type = 'CONSUMIDOR_FINAL';
+    }
 
     $cart = $body['cart'] ?? [];
     if (!is_array($cart) || empty($cart)) {
-      return new WP_REST_Response(['success' => false, 'error' => 'Cart is empty'], 400);
+        return new WP_REST_Response(['success' => false, 'error' => 'Cart is empty'], 400);
     }
 
     $discount_type  = sanitize_text_field($body['discount_type'] ?? 'none');
@@ -198,63 +300,68 @@ class JC_REST_Register {
     // Resolve register/store
     $register_id = (int)get_option('jc_current_register_id', 0);
     if ($register_id <= 0) {
-      return new WP_REST_Response(['success' => false, 'error' => 'Register not configured (jc_current_register_id)'], 400);
+        return new WP_REST_Response(['success' => false, 'error' => 'Register not configured (jc_current_register_id)'], 400);
     }
 
     global $wpdb;
     $t_registers = $wpdb->prefix . 'jc_registers';
 
     $store_id = (int)$wpdb->get_var(
-      $wpdb->prepare("SELECT store_id FROM $t_registers WHERE id=%d", $register_id)
+        $wpdb->prepare("SELECT store_id FROM {$t_registers} WHERE id=%d", $register_id)
     );
 
     if ($store_id <= 0) {
-      return new WP_REST_Response(['success' => false, 'error' => 'Store not found for register'], 400);
+        return new WP_REST_Response(['success' => false, 'error' => 'Store not found for register'], 400);
     }
+
+    // Tax behavior:
+    // - CONSUMIDOR_FINAL: unit_price is FINAL price (IVA included) -> store as tax_rate 0 so totals remain equal to UI
+    // - CREDITO_FISCAL: unit_price is BEFORE IVA -> apply 13%
+    $tax_rate = ($document_type === 'CREDITO_FISCAL') ? 13.0 : 0.0;
 
     // Build items
     $items = [];
     foreach ($cart as $line) {
-      $product_id = (int)($line['product_id'] ?? 0);
-      $qty        = (float)($line['qty'] ?? 1);
-      $unit_price = (float)($line['unit_price'] ?? 0);
-      $name       = sanitize_text_field($line['name'] ?? 'Item');
+        $product_id = (int)($line['product_id'] ?? 0);
+        $qty        = (float)($line['qty'] ?? 1);
+        $unit_price = (float)($line['unit_price'] ?? 0);
+        $name       = sanitize_text_field($line['name'] ?? 'Item');
 
-      if ($product_id <= 0 || $qty <= 0) continue;
+        if ($product_id <= 0 || $qty <= 0) continue;
 
-      $items[] = [
-        'product_id'   => $product_id,
-        'product_name' => $name,
-        'quantity'     => $qty,
-        'unit_price'   => $unit_price,
-        'tax_rate'     => 13.0,
-        'meta'         => $line['meta'] ?? null, // size/flavor/toppings
-      ];
+        $items[] = [
+            'product_id'   => $product_id,
+            'product_name' => $name,
+            'quantity'     => $qty,
+            'unit_price'   => $unit_price,
+            'tax_rate'     => $tax_rate,
+            'meta'         => $line['meta'] ?? null, // size/flavor/toppings
+        ];
     }
 
     if (empty($items)) {
-      return new WP_REST_Response(['success' => false, 'error' => 'No valid items'], 400);
+        return new WP_REST_Response(['success' => false, 'error' => 'No valid items'], 400);
     }
 
     // Invoice payload
     $payload = [
-      'store_id'        => $store_id,
-      'register_id'     => $register_id,
-      'document_type'   => 'CONSUMIDOR_FINAL',
-      'items'           => $items,
-      'discount_type'   => $discount_type,
-      'discount_value'  => $discount_value,
-      'fee_label'       => $fee_label,
-      'fee_value'       => $fee_value,
+        'store_id'        => $store_id,
+        'register_id'     => $register_id,
+        'document_type'   => $document_type,
+        'items'           => $items,
+        'discount_type'   => $discount_type,
+        'discount_value'  => $discount_value,
+        'fee_label'       => $fee_label,
+        'fee_value'       => $fee_value,
     ];
 
     if (!class_exists('JC_Invoice_Service')) {
-      return new WP_REST_Response(['success' => false, 'error' => 'JC_Invoice_Service not loaded'], 500);
+        return new WP_REST_Response(['success' => false, 'error' => 'JC_Invoice_Service not loaded'], 500);
     }
 
     $result = JC_Invoice_Service::create_invoice($payload);
     if (empty($result['success'])) {
-      return new WP_REST_Response(['success' => false, 'error' => $result['error'] ?? 'Create invoice failed'], 500);
+        return new WP_REST_Response(['success' => false, 'error' => $result['error'] ?? 'Create invoice failed'], 500);
     }
 
     $invoice_id = (int)$result['invoice_id'];
@@ -263,26 +370,25 @@ class JC_REST_Register {
     $mh = ['mh_status' => 'NOT_ATTEMPTED'];
 
     if (class_exists('JC_MH_Sender_Service')) {
-      try {
-        $mh = JC_MH_Sender_Service::send_one($invoice_id);
-        if (!is_array($mh)) {
-          $mh = ['mh_status' => 'FAILED', 'error' => 'send_one() returned non-array'];
+        try {
+            $mh = JC_MH_Sender_Service::send_one($invoice_id);
+            if (!is_array($mh)) {
+                $mh = ['mh_status' => 'FAILED', 'error' => 'send_one() returned non-array'];
+            }
+        } catch (Throwable $e) {
+            error_log('[JC POS] MH send exception: ' . $e->getMessage());
+            $mh = ['mh_status' => 'FAILED', 'error' => $e->getMessage()];
         }
-      } catch (Throwable $e) {
-        error_log('[JC POS] MH send exception: ' . $e->getMessage());
-        $mh = ['mh_status' => 'FAILED', 'error' => $e->getMessage()];
-      }
     } else {
-      $mh = ['mh_status' => 'FAILED', 'error' => 'JC_MH_Sender_Service not loaded'];
+        $mh = ['mh_status' => 'FAILED', 'error' => 'JC_MH_Sender_Service not loaded'];
     }
 
     return rest_ensure_response([
-      'success'       => true,
-      'invoice_id'    => $invoice_id,
-      'ticket_number' => $result['ticket_number'] ?? null,
-      'mh'            => $mh,
-      // If your invoice service returns DTE JSON, you can pass it through too:
-      // 'dte' => $result['dte'] ?? null,
+        'success'       => true,
+        'invoice_id'    => $invoice_id,
+        'ticket_number' => $result['ticket_number'] ?? null,
+        'mh'            => $mh,
+        // 'dte' => $result['dte'] ?? null,
     ]);
-  }
+    }
 }
