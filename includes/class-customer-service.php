@@ -367,5 +367,70 @@ if (!class_exists('JC_Customer_Service')) {
 
             return is_array($results) ? $results : [];
         }
+
+        public static function nrc_exists(string $nrc, int $exclude_customer_id = 0): bool {
+            global $wpdb;
+        
+            $nrc = trim($nrc);
+        
+            if ($nrc === '') {
+                return false;
+            }
+        
+            $table = self::customers_table();
+        
+            if ($exclude_customer_id > 0) {
+                $sql = $wpdb->prepare(
+                    "SELECT COUNT(*)
+                     FROM {$table}
+                     WHERE TRIM(COALESCE(nrc, '')) = TRIM(%s)
+                       AND id <> %d",
+                    $nrc,
+                    $exclude_customer_id
+                );
+            } else {
+                $sql = $wpdb->prepare(
+                    "SELECT COUNT(*)
+                     FROM {$table}
+                     WHERE TRIM(COALESCE(nrc, '')) = TRIM(%s)",
+                    $nrc
+                );
+            }
+        
+            return ((int) $wpdb->get_var($sql)) > 0;
+        }
+        
+        public static function nit_exists(string $nit, int $exclude_customer_id = 0): bool {
+            global $wpdb;
+        
+            $nit = trim($nit);
+        
+            if ($nit === '') {
+                return false;
+            }
+        
+            $table = self::customers_table();
+        
+            if ($exclude_customer_id > 0) {
+                $sql = $wpdb->prepare(
+                    "SELECT COUNT(*)
+                     FROM {$table}
+                     WHERE TRIM(COALESCE(nit, '')) = TRIM(%s)
+                       AND id <> %d",
+                    $nit,
+                    $exclude_customer_id
+                );
+            } else {
+                $sql = $wpdb->prepare(
+                    "SELECT COUNT(*)
+                     FROM {$table}
+                     WHERE TRIM(COALESCE(nit, '')) = TRIM(%s)",
+                    $nit
+                );
+            }
+        
+            return ((int) $wpdb->get_var($sql)) > 0;
+        }
+
     }
 }

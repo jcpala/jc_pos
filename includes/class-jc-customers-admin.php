@@ -12,17 +12,25 @@ if (!class_exists('JC_Customers_Admin')) {
 
         /**
          * Parent menu slug.
-         *
-         * IMPORTANT:
-         * If your main JC POS menu uses a different slug, change this value.
          */
         const PARENT_SLUG = 'jc-pos';
+
+        /**
+         * Keep validation errors in the same request
+         * so the form can stay filled.
+         */
+        private static $request_error_code = '';
+
+        /**
+         * Keep posted form values in memory for the same request.
+         */
+        private static $request_form_data = [];
 
         /**
          * Boot hooks.
          */
         public static function init(): void {
-            add_action('admin_menu', [__CLASS__, 'register_menu']);
+            add_action('admin_menu', [__CLASS__, 'register_menu'], 99);
             add_action('admin_init', [__CLASS__, 'handle_actions']);
         }
 
@@ -58,7 +66,10 @@ if (!class_exists('JC_Customers_Admin')) {
                 return;
             }
 
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (
+                isset($_SERVER['REQUEST_METHOD']) &&
+                strtoupper((string) $_SERVER['REQUEST_METHOD']) === 'POST'
+            ) {
                 $action = isset($_POST['jc_customer_action']) ? sanitize_key(wp_unslash($_POST['jc_customer_action'])) : '';
 
                 if ($action === 'save_customer') {
@@ -69,15 +80,21 @@ if (!class_exists('JC_Customers_Admin')) {
 
         /**
          * Save customer form.
+         *
+         * Validation errors do NOT redirect.
+         * This keeps the form values on screen so the user can fix them.
+         *
+         * Success DOES redirect to the view page.
          */
         private static function handle_save_customer(): void {
             check_admin_referer('jc_save_customer', 'jc_customer_nonce');
 
+            self::$request_error_code = '';
+            self::$request_form_data  = [];
+
             if (!self::customers_table_exists()) {
-                wp_safe_redirect(self::page_url([
-                    'jc_error' => 'missing_table',
-                ]));
-                exit;
+                self::$request_error_code = 'missing_table';
+                return;
             }
 
             $customer_id = isset($_POST['customer_id']) ? absint($_POST['customer_id']) : 0;
@@ -97,56 +114,67 @@ if (!class_exists('JC_Customers_Admin')) {
                 'is_active'  => isset($_POST['is_active']) ? 1 : 0,
             ];
 
+            // Keep posted values available if validation fails.
+            self::$request_form_data = $data;
+
             $has_name = trim((string) $data['first_name']) !== '' || trim((string) $data['last_name']) !== '';
             $has_company = trim((string) $data['company']) !== '';
 
             if (!$has_name && !$has_company) {
-                wp_safe_redirect(self::page_url([
-                    'action'      => $customer_id > 0 ? 'edit' : 'new',
-                    'customer_id' => $customer_id > 0 ? $customer_id : null,
-                    'jc_error'    => 'name_required',
-                ]));
-                exit;
+                self::$request_error_code = 'name_required';
+                return;
             }
 
-            // Prevent duplicate NRC.
-            if (!empty($data['nrc'])) {
+            // Duplicate NRC check.
+            if (trim((string) $data['nrc']) !== '') {
                 $existing_by_nrc = JC_Customer_Service::get_customer_by_nrc((string) $data['nrc']);
 
                 if ($existing_by_nrc && (int) $existing_by_nrc['id'] !== $customer_id) {
-                    wp_safe_redirect(self::page_url([
-                        'action'      => $customer_id > 0 ? 'edit' : 'new',
-                        'customer_id' => $customer_id > 0 ? $customer_id : null,
-                        'jc_error'    => 'duplicate_nrc',
-                    ]));
-                    exit;
+                    self::$request_error_code = 'duplicate_nrc';
+                    return;
                 }
             }
 
-            // Prevent duplicate NIT.
-            if (!empty($data['nit'])) {
+            // Duplicate NIT check.
+            if (trim((string) $data['nit']) !== '') {
                 $existing_by_nit = JC_Customer_Service::get_customer_by_nit((string) $data['nit']);
 
                 if ($existing_by_nit && (int) $existing_by_nit['id'] !== $customer_id) {
-                    wp_safe_redirect(self::page_url([
-                        'action'      => $customer_id > 0 ? 'edit' : 'new',
-                        'customer_id' => $customer_id > 0 ? $customer_id : null,
-                        'jc_error'    => 'duplicate_nit',
-                    ]));
-                    exit;
+                    self::$request_error_code = 'duplicate_nit';
+                    return;
                 }
             }
 
             $saved_id = JC_Customer_Service::save_customer($data);
 
             if ($saved_id <= 0) {
-                wp_safe_redirect(self::page_url([
-                    'action'      => $customer_id > 0 ? 'edit' : 'new',
-                    'customer_id' => $customer_id > 0 ? $customer_id : null,
-                    'jc_error'    => 'save_failed',
-                ]));
-                exit;
+                // Catch DB unique key failures as a fallback.
+                global $wpdb;
+
+                $db_error = isset($wpdb->last_error) ? (string) $wpdb->last_error : '';
+
+                if (
+                    stripos($db_error, 'uk_jc_customers_nrc') !== false ||
+                    stripos($db_error, "for key 'uk_jc_customers_nrc'") !== false ||
+                    stripos($db_error, 'Duplicate entry') !== false && stripos($db_error, 'nrc') !== false
+                ) {
+                    self::$request_error_code = 'duplicate_nrc';
+                } elseif (
+                    stripos($db_error, 'uk_jc_customers_nit') !== false ||
+                    stripos($db_error, "for key 'uk_jc_customers_nit'") !== false ||
+                    stripos($db_error, 'Duplicate entry') !== false && stripos($db_error, 'nit') !== false
+                ) {
+                    self::$request_error_code = 'duplicate_nit';
+                } else {
+                    self::$request_error_code = 'save_failed';
+                }
+
+                return;
             }
+
+            // Clear cached form values on success.
+            self::$request_form_data = [];
+            self::$request_error_code = '';
 
             wp_safe_redirect(self::page_url([
                 'action'      => 'view',
@@ -164,28 +192,35 @@ if (!class_exists('JC_Customers_Admin')) {
                 wp_die('You do not have permission to access this page.');
             }
 
-            $page_slug = self::PAGE_SLUG;
-            $table_ready = self::customers_table_exists();
+            $page_slug      = self::PAGE_SLUG;
+            $table_ready    = self::customers_table_exists();
             $invoices_ready = self::invoices_have_customer_id();
 
-            $search = isset($_GET['s']) ? sanitize_text_field(wp_unslash($_GET['s'])) : '';
-            $action = isset($_GET['action']) ? sanitize_key(wp_unslash($_GET['action'])) : 'list';
+            $search      = isset($_GET['s']) ? sanitize_text_field(wp_unslash($_GET['s'])) : '';
+            $action      = isset($_GET['action']) ? sanitize_key(wp_unslash($_GET['action'])) : 'list';
             $customer_id = isset($_GET['customer_id']) ? absint($_GET['customer_id']) : 0;
 
             if (!in_array($action, ['list', 'view', 'edit', 'new'], true)) {
                 $action = 'list';
             }
 
-            $notice_message = self::get_notice_message(
-                isset($_GET['jc_notice']) ? sanitize_key(wp_unslash($_GET['jc_notice'])) : ''
-            );
+            // If there was a validation failure in this same request, keep the form open.
+            if (!empty(self::$request_form_data)) {
+                $posted_id   = isset(self::$request_form_data['id']) ? (int) self::$request_form_data['id'] : 0;
+                $customer_id = $posted_id > 0 ? $posted_id : 0;
+                $action      = $customer_id > 0 ? 'edit' : 'new';
+            }
 
-            $error_message = self::get_error_message(
-                isset($_GET['jc_error']) ? sanitize_key(wp_unslash($_GET['jc_error'])) : ''
-            );
+            $notice_code = isset($_GET['jc_notice']) ? sanitize_key(wp_unslash($_GET['jc_notice'])) : '';
+            $error_code  = self::$request_error_code !== ''
+                ? self::$request_error_code
+                : (isset($_GET['jc_error']) ? sanitize_key(wp_unslash($_GET['jc_error'])) : '');
 
-            $customers = [];
-            $customer = null;
+            $notice_message = self::get_notice_message($notice_code);
+            $error_message  = self::get_error_message($error_code);
+
+            $customers         = [];
+            $customer          = null;
             $customer_invoices = [];
 
             if ($table_ready) {
@@ -194,13 +229,20 @@ if (!class_exists('JC_Customers_Admin')) {
                 if ($customer_id > 0) {
                     $customer = JC_Customer_Service::get_customer($customer_id);
 
-                    if (!$customer && in_array($action, ['view', 'edit'], true)) {
+                    if (!$customer && in_array($action, ['view', 'edit'], true) && empty(self::$request_form_data)) {
                         $error_message = 'Customer not found.';
                     }
 
                     if ($customer && $action === 'view' && $invoices_ready) {
                         $customer_invoices = JC_Customer_Service::get_customer_invoices($customer_id, 100);
                     }
+                }
+
+                // Merge posted values back into the form after validation errors.
+                if (!empty(self::$request_form_data)) {
+                    $customer = is_array($customer)
+                        ? array_merge($customer, self::$request_form_data)
+                        : self::$request_form_data;
                 }
             } else {
                 $error_message = 'The customers table does not exist yet. Create wp_jc_customers first in phpMyAdmin.';
@@ -213,40 +255,43 @@ if (!class_exists('JC_Customers_Admin')) {
                 return;
             }
 
-            
             self::render_fallback_page([
-                'page_slug'        => $page_slug,
-                'search'           => $search,
-                'action'           => $action,
-                'customer_id'      => $customer_id,
-                'customers'        => $customers,
-                'customer'         => $customer,
-                'customer_invoices'=> $customer_invoices,
-                'notice_message'   => $notice_message,
-                'error_message'    => $error_message,
-                'table_ready'      => $table_ready,
-                'invoices_ready'   => $invoices_ready,
+                'notice_message' => $notice_message,
+                'error_message'  => $error_message,
+                'table_ready'    => $table_ready,
             ]);
         }
 
         /**
          * Fallback page renderer.
-         *
-         * This lets you test the page even before admin/page-customers.php exists.
          */
         private static function render_fallback_page(array $data): void {
-            $page_slug         = $data['page_slug'];
-            $search            = $data['search'];
-            $action            = $data['action'];
-            $customers         = $data['customers'];
-            $customer          = $data['customer'];
-            $customer_invoices = $data['customer_invoices'];
-            $notice_message    = $data['notice_message'];
-            $error_message     = $data['error_message'];
-            $table_ready       = $data['table_ready'];
-            $invoices_ready    = $data['invoices_ready'];
+            $notice_message = isset($data['notice_message']) ? (string) $data['notice_message'] : '';
+            $error_message  = isset($data['error_message']) ? (string) $data['error_message'] : '';
+            $table_ready    = !empty($data['table_ready']);
+            ?>
+            <div class="wrap">
+                <h1>Customers</h1>
 
-    
+                <?php if ($notice_message !== '') : ?>
+                    <div class="notice notice-success is-dismissible">
+                        <p><?php echo esc_html($notice_message); ?></p>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($error_message !== '') : ?>
+                    <div class="notice notice-error">
+                        <p><?php echo esc_html($error_message); ?></p>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!$table_ready) : ?>
+                    <p>The customers table does not exist yet.</p>
+                <?php else : ?>
+                    <p>Template file not found. Expected: <code>admin/page-customers.php</code></p>
+                <?php endif; ?>
+            </div>
+            <?php
         }
 
         /**
@@ -278,7 +323,7 @@ if (!class_exists('JC_Customers_Admin')) {
             $table = $wpdb->prefix . 'jc_customers';
 
             $found = $wpdb->get_var(
-                $wpdb->prepare("SHOW TABLES LIKE %s", $table)
+                $wpdb->prepare('SHOW TABLES LIKE %s', $table)
             );
 
             return $found === $table;
@@ -293,7 +338,7 @@ if (!class_exists('JC_Customers_Admin')) {
             $table = $wpdb->prefix . 'jc_invoices';
 
             $table_exists = $wpdb->get_var(
-                $wpdb->prepare("SHOW TABLES LIKE %s", $table)
+                $wpdb->prepare('SHOW TABLES LIKE %s', $table)
             );
 
             if ($table_exists !== $table) {
@@ -338,7 +383,5 @@ if (!class_exists('JC_Customers_Admin')) {
                     return '';
             }
         }
-    
-    
     }
 }

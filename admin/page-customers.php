@@ -1,5 +1,19 @@
 <?php
 defined('ABSPATH') || exit;
+
+$current_error_code = isset($error_code) ? (string) $error_code : '';
+$current_error_message = isset($error_message) ? (string) $error_message : '';
+
+$is_name_error = ($current_error_code === 'name_required');
+$is_nrc_error  = ($current_error_code === 'duplicate_nrc');
+$is_nit_error  = ($current_error_code === 'duplicate_nit');
+
+$show_top_error = !empty($current_error_message) && !in_array($action, ['new', 'edit'], true);
+$show_form_error = !empty($current_error_message) && in_array($action, ['new', 'edit'], true);
+
+$name_field_style = $is_name_error ? 'border-color:#d63638;' : '';
+$nrc_field_style  = $is_nrc_error ? 'border-color:#d63638;' : '';
+$nit_field_style  = $is_nit_error ? 'border-color:#d63638;' : '';
 ?>
 <div class="wrap">
     <h1 class="wp-heading-inline">Customers</h1>
@@ -12,9 +26,9 @@ defined('ABSPATH') || exit;
         </div>
     <?php endif; ?>
 
-    <?php if (!empty($error_message)) : ?>
+    <?php if ($show_top_error) : ?>
         <div class="notice notice-error">
-            <p><?php echo esc_html($error_message); ?></p>
+            <p><?php echo esc_html($current_error_message); ?></p>
         </div>
     <?php endif; ?>
 
@@ -56,6 +70,17 @@ defined('ABSPATH') || exit;
         <div class="postbox" style="max-width: 900px; padding: 20px; margin-top: 20px;">
             <h2><?php echo esc_html($action === 'new' ? 'Add Customer' : 'Edit Customer'); ?></h2>
 
+            <?php if ($show_form_error) : ?>
+                <div
+                    class="notice notice-error"
+                    style="margin: 12px 0 15px 0; border-left: 4px solid #d63638; background: #fff;"
+                >
+                    <p style="margin: 10px 12px; color: #d63638; font-weight: 600;">
+                        <?php echo esc_html($current_error_message); ?>
+                    </p>
+                </div>
+            <?php endif; ?>
+
             <form method="post">
                 <?php wp_nonce_field('jc_save_customer', 'jc_customer_nonce'); ?>
                 <input type="hidden" name="page" value="<?php echo esc_attr($page_slug); ?>">
@@ -65,7 +90,14 @@ defined('ABSPATH') || exit;
                 <table class="form-table" role="presentation">
                     <tbody>
                         <tr>
-                            <th scope="row"><label for="first_name">First Name</label></th>
+                            <th scope="row">
+                                <label for="first_name">
+                                    First Name
+                                    <?php if ($is_name_error) : ?>
+                                        <span style="color:#d63638;font-weight:700;">*</span>
+                                    <?php endif; ?>
+                                </label>
+                            </th>
                             <td>
                                 <input
                                     type="text"
@@ -73,11 +105,25 @@ defined('ABSPATH') || exit;
                                     id="first_name"
                                     class="regular-text"
                                     value="<?php echo esc_attr((string) ($form_customer['first_name'] ?? '')); ?>"
+                                    style="<?php echo esc_attr($name_field_style); ?>"
                                 >
+                                <?php if ($is_name_error) : ?>
+                                    <p style="margin:6px 0 0;color:#d63638;font-weight:600;">
+                                        Enter a first/last name or a company name.
+                                    </p>
+                                <?php endif; ?>
                             </td>
                         </tr>
+
                         <tr>
-                            <th scope="row"><label for="last_name">Last Name</label></th>
+                            <th scope="row">
+                                <label for="last_name">
+                                    Last Name
+                                    <?php if ($is_name_error) : ?>
+                                        <span style="color:#d63638;font-weight:700;">*</span>
+                                    <?php endif; ?>
+                                </label>
+                            </th>
                             <td>
                                 <input
                                     type="text"
@@ -85,11 +131,20 @@ defined('ABSPATH') || exit;
                                     id="last_name"
                                     class="regular-text"
                                     value="<?php echo esc_attr((string) ($form_customer['last_name'] ?? '')); ?>"
+                                    style="<?php echo esc_attr($name_field_style); ?>"
                                 >
                             </td>
                         </tr>
+
                         <tr>
-                            <th scope="row"><label for="company">Company</label></th>
+                            <th scope="row">
+                                <label for="company">
+                                    Company
+                                    <?php if ($is_name_error) : ?>
+                                        <span style="color:#d63638;font-weight:700;">*</span>
+                                    <?php endif; ?>
+                                </label>
+                            </th>
                             <td>
                                 <input
                                     type="text"
@@ -97,11 +152,25 @@ defined('ABSPATH') || exit;
                                     id="company"
                                     class="regular-text"
                                     value="<?php echo esc_attr((string) ($form_customer['company'] ?? '')); ?>"
+                                    style="<?php echo esc_attr($name_field_style); ?>"
                                 >
+                                <?php if ($is_name_error) : ?>
+                                    <p style="margin:6px 0 0;color:#d63638;font-weight:600;">
+                                        Company can be used instead of a personal name.
+                                    </p>
+                                <?php endif; ?>
                             </td>
                         </tr>
+
                         <tr>
-                            <th scope="row"><label for="nrc">NRC</label></th>
+                            <th scope="row">
+                                <label for="nrc">
+                                    NRC
+                                    <?php if ($is_nrc_error) : ?>
+                                        <span style="color:#d63638;font-weight:700;">*</span>
+                                    <?php endif; ?>
+                                </label>
+                            </th>
                             <td>
                                 <input
                                     type="text"
@@ -109,11 +178,25 @@ defined('ABSPATH') || exit;
                                     id="nrc"
                                     class="regular-text"
                                     value="<?php echo esc_attr((string) ($form_customer['nrc'] ?? '')); ?>"
+                                    style="<?php echo esc_attr($nrc_field_style); ?>"
                                 >
+                                <?php if ($is_nrc_error) : ?>
+                                    <p style="margin:6px 0 0;color:#d63638;font-weight:600;">
+                                        <?php echo esc_html($current_error_message); ?>
+                                    </p>
+                                <?php endif; ?>
                             </td>
                         </tr>
+
                         <tr>
-                            <th scope="row"><label for="nit">NIT</label></th>
+                            <th scope="row">
+                                <label for="nit">
+                                    NIT
+                                    <?php if ($is_nit_error) : ?>
+                                        <span style="color:#d63638;font-weight:700;">*</span>
+                                    <?php endif; ?>
+                                </label>
+                            </th>
                             <td>
                                 <input
                                     type="text"
@@ -121,9 +204,16 @@ defined('ABSPATH') || exit;
                                     id="nit"
                                     class="regular-text"
                                     value="<?php echo esc_attr((string) ($form_customer['nit'] ?? '')); ?>"
+                                    style="<?php echo esc_attr($nit_field_style); ?>"
                                 >
+                                <?php if ($is_nit_error) : ?>
+                                    <p style="margin:6px 0 0;color:#d63638;font-weight:600;">
+                                        <?php echo esc_html($current_error_message); ?>
+                                    </p>
+                                <?php endif; ?>
                             </td>
                         </tr>
+
                         <tr>
                             <th scope="row"><label for="address">Address</label></th>
                             <td>
@@ -135,6 +225,7 @@ defined('ABSPATH') || exit;
                                 ><?php echo esc_textarea((string) ($form_customer['address'] ?? '')); ?></textarea>
                             </td>
                         </tr>
+
                         <tr>
                             <th scope="row"><label for="city">City</label></th>
                             <td>
@@ -147,6 +238,7 @@ defined('ABSPATH') || exit;
                                 >
                             </td>
                         </tr>
+
                         <tr>
                             <th scope="row"><label for="phone">Phone</label></th>
                             <td>
@@ -159,6 +251,7 @@ defined('ABSPATH') || exit;
                                 >
                             </td>
                         </tr>
+
                         <tr>
                             <th scope="row"><label for="email">Email</label></th>
                             <td>
@@ -171,6 +264,7 @@ defined('ABSPATH') || exit;
                                 >
                             </td>
                         </tr>
+
                         <tr>
                             <th scope="row"><label for="wp_user_id">WP User ID</label></th>
                             <td>
@@ -183,6 +277,7 @@ defined('ABSPATH') || exit;
                                 >
                             </td>
                         </tr>
+
                         <tr>
                             <th scope="row">Active</th>
                             <td>

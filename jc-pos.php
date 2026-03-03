@@ -23,6 +23,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-register-session-servic
 require_once plugin_dir_path(__FILE__) . 'includes/class-customer-service.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-jc-customers-admin.php';
 
+
 JC_Customers_Admin::init();
 
 add_action('init', ['JC_Correlativo_Admin', 'init']);

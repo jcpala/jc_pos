@@ -658,4 +658,343 @@
   updateDocUI(); // ✅ NEW
   loadBootstrap();
   renderCart();
+
+  (function () {
+    function onReady(fn) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', fn);
+        } else {
+            fn();
+        }
+    }
+
+    onReady(function () {
+        var customerBox = document.getElementById('jc-register-customer-box');
+        var jsonEl = document.getElementById('jc-pos-customer-index');
+
+        if (!customerBox || !jsonEl) {
+            return;
+        }
+
+        var customers = [];
+        try {
+            customers = JSON.parse(jsonEl.textContent || '[]');
+        } catch (err) {
+            customers = [];
+        }
+
+        var searchInput = document.getElementById('jc-customer-search');
+        var searchBtn = document.getElementById('jc-customer-search-btn');
+        var resultsBox = document.getElementById('jc-customer-results');
+        var errorBox = document.getElementById('jc-customer-error');
+        var selectedBox = document.getElementById('jc-selected-customer');
+        var selectedName = document.getElementById('jc-selected-customer-name');
+        var selectedMeta = document.getElementById('jc-selected-customer-meta');
+        var clearBtn = document.getElementById('jc-clear-customer');
+        var requirementText = document.getElementById('jc-customer-requirement-text');
+
+        var hiddenFields = {
+            id: document.getElementById('jc-sale-customer-id'),
+            name: document.getElementById('jc-sale-customer-name'),
+            company: document.getElementById('jc-sale-customer-company'),
+            nrc: document.getElementById('jc-sale-customer-nrc'),
+            nit: document.getElementById('jc-sale-customer-nit'),
+            address: document.getElementById('jc-sale-customer-address'),
+            city: document.getElementById('jc-sale-customer-city'),
+            phone: document.getElementById('jc-sale-customer-phone'),
+            email: document.getElementById('jc-sale-customer-email')
+        };
+
+        var documentTypeRadios = Array.prototype.slice.call(
+            document.querySelectorAll('input[type="radio"][name="document_type"]')
+        );
+
+        function getCheckedDocumentType() {
+            for (var i = 0; i < documentTypeRadios.length; i++) {
+                if (documentTypeRadios[i].checked) {
+                    return documentTypeRadios[i].value;
+                }
+            }
+            return '';
+        }
+
+        function isCreditoFiscal() {
+            var value = (getCheckedDocumentType() || '').toString().trim().toUpperCase();
+
+            if (!value) {
+                return false;
+            }
+
+            return value.indexOf('CREDITO') !== -1 && value.indexOf('FISCAL') !== -1;
+        }
+
+        function normalize(value) {
+            return (value || '').toString().trim().toLowerCase();
+        }
+
+        function escapeHtml(value) {
+            return (value || '')
+                .toString()
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function customerDisplayName(customer) {
+            var first = (customer.first_name || '').toString().trim();
+            var last = (customer.last_name || '').toString().trim();
+            var full = (first + ' ' + last).trim();
+
+            if (full !== '') {
+                return full;
+            }
+
+            if ((customer.company || '').toString().trim() !== '') {
+                return customer.company.toString().trim();
+            }
+
+            return 'Customer #' + (customer.id || '');
+        }
+
+        function buildCustomerMeta(customer) {
+            var parts = [];
+
+            if (customer.company) {
+                parts.push('Company: ' + customer.company);
+            }
+            if (customer.nrc) {
+                parts.push('NRC: ' + customer.nrc);
+            }
+            if (customer.nit) {
+                parts.push('NIT: ' + customer.nit);
+            }
+            if (customer.phone) {
+                parts.push('Phone: ' + customer.phone);
+            }
+
+            return parts.join(' • ');
+        }
+
+        function setError(message) {
+            if (!errorBox) {
+                return;
+            }
+
+            if (message) {
+                errorBox.textContent = message;
+                errorBox.style.display = 'block';
+            } else {
+                errorBox.textContent = '';
+                errorBox.style.display = 'none';
+            }
+        }
+
+        function clearResults() {
+            if (!resultsBox) {
+                return;
+            }
+            resultsBox.innerHTML = '';
+            resultsBox.style.display = 'none';
+        }
+
+        function fillHiddenFields(customer) {
+            hiddenFields.id.value = customer && customer.id ? String(customer.id) : '';
+            hiddenFields.name.value = customer ? customerDisplayName(customer) : '';
+            hiddenFields.company.value = customer && customer.company ? String(customer.company) : '';
+            hiddenFields.nrc.value = customer && customer.nrc ? String(customer.nrc) : '';
+            hiddenFields.nit.value = customer && customer.nit ? String(customer.nit) : '';
+            hiddenFields.address.value = customer && customer.address ? String(customer.address) : '';
+            hiddenFields.city.value = customer && customer.city ? String(customer.city) : '';
+            hiddenFields.phone.value = customer && customer.phone ? String(customer.phone) : '';
+            hiddenFields.email.value = customer && customer.email ? String(customer.email) : '';
+        }
+
+        function selectCustomer(customer) {
+            fillHiddenFields(customer);
+
+            if (selectedName) {
+                selectedName.textContent = customerDisplayName(customer);
+            }
+            if (selectedMeta) {
+                selectedMeta.textContent = buildCustomerMeta(customer);
+            }
+            if (selectedBox) {
+                selectedBox.style.display = 'block';
+            }
+
+            setError('');
+            clearResults();
+
+            if (searchInput) {
+                searchInput.value = customerDisplayName(customer);
+            }
+        }
+
+        function clearSelectedCustomer() {
+            fillHiddenFields(null);
+
+            if (selectedName) {
+                selectedName.textContent = '';
+            }
+            if (selectedMeta) {
+                selectedMeta.textContent = '';
+            }
+            if (selectedBox) {
+                selectedBox.style.display = 'none';
+            }
+
+            setError('');
+
+            if (searchInput) {
+                searchInput.value = '';
+            }
+        }
+
+        function matchesCustomer(customer, query) {
+            var q = normalize(query);
+
+            if (q === '') {
+                return true;
+            }
+
+            var haystack = [
+                customer.first_name,
+                customer.last_name,
+                customer.company,
+                customer.nrc,
+                customer.nit,
+                customer.phone,
+                customer.email
+            ].map(normalize).join(' ');
+
+            return haystack.indexOf(q) !== -1;
+        }
+
+        function renderResults(list) {
+            if (!resultsBox) {
+                return;
+            }
+
+            resultsBox.innerHTML = '';
+
+            if (!list.length) {
+                resultsBox.innerHTML =
+                    '<div style="padding:8px 10px;color:#50575e;font-size:12px;">No matching customers found.</div>';
+                resultsBox.style.display = 'block';
+                return;
+            }
+
+            for (var i = 0; i < list.length; i++) {
+                (function (customer) {
+                    var row = document.createElement('button');
+                    row.type = 'button';
+                    row.className = 'button-link';
+                    row.style.display = 'block';
+                    row.style.width = '100%';
+                    row.style.textAlign = 'left';
+                    row.style.padding = '8px 10px';
+                    row.style.borderBottom = '1px solid #f0f0f1';
+                    row.style.textDecoration = 'none';
+                    row.style.color = '#1d2327';
+                    row.style.background = '#fff';
+                    row.style.cursor = 'pointer';
+
+                    row.innerHTML =
+                        '<div style="font-weight:600;">' + escapeHtml(customerDisplayName(customer)) + '</div>' +
+                        '<div style="margin-top:3px;color:#50575e;font-size:12px;">' +
+                        escapeHtml(buildCustomerMeta(customer)) +
+                        '</div>';
+
+                    row.addEventListener('click', function () {
+                        selectCustomer(customer);
+                    });
+
+                    resultsBox.appendChild(row);
+                })(list[i]);
+            }
+
+            resultsBox.style.display = 'block';
+        }
+
+        function runCustomerSearch() {
+            var query = searchInput ? searchInput.value : '';
+            var q = normalize(query);
+
+            setError('');
+            clearResults();
+
+            if (q === '') {
+                setError('Enter a name, company, NRC, NIT, phone, or email to search.');
+                return;
+            }
+
+            var matches = customers.filter(function (customer) {
+                return matchesCustomer(customer, q);
+            }).slice(0, 20);
+
+            renderResults(matches);
+        }
+
+        function updateRequirementState() {
+            if (!requirementText) {
+                return;
+            }
+
+            if (isCreditoFiscal()) {
+                requirementText.textContent = 'Crédito Fiscal requires a selected customer before completing the sale.';
+                requirementText.style.color = '#d63638';
+            } else {
+                requirementText.textContent = 'Optional for Consumidor Final. Required for Crédito Fiscal.';
+                requirementText.style.color = '#50575e';
+            }
+        }
+
+        if (searchBtn) {
+            searchBtn.addEventListener('click', function () {
+                try {
+                    runCustomerSearch();
+                } catch (err) {
+                    console.error('JC POS customer search error:', err);
+                }
+            });
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    runCustomerSearch();
+                }
+            });
+        }
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function () {
+                clearSelectedCustomer();
+                clearResults();
+
+                if (searchInput) {
+                    searchInput.focus();
+                }
+            });
+        }
+
+        for (var i = 0; i < documentTypeRadios.length; i++) {
+            documentTypeRadios[i].addEventListener('change', updateRequirementState);
+        }
+
+        updateRequirementState();
+    });
+})();
+
+
+
+
+
+
+
+
+
 })();

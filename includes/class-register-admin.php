@@ -135,8 +135,74 @@ class JC_Register_Admin {
 
   <span id="jc-doc-badge" style="margin-left:auto;font-size:12px;opacity:.75;"></span>
 </div>
+
+<?php
+$register_customers = class_exists('JC_Customer_Service')
+    ? JC_Customer_Service::find_customers('', 200)
+    : [];
+?>
+
+<script type="application/json" id="jc-pos-customer-index">
+<?php echo wp_json_encode($register_customers, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>
+</script>
+
+<div id="jc-register-customer-box" style="margin-top:14px;padding:12px;border:1px solid #dcdcde;border-radius:6px;background:#fff;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;">
+        <strong>Customer</strong>
+        <a
+            href="<?php echo esc_url(JC_Customers_Admin::page_url(['action' => 'new'])); ?>"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="button button-small"
+        >Add New</a>
+    </div>
+
+    <p id="jc-customer-requirement-text" style="margin:0 0 10px 0;color:#50575e;font-size:12px;">
+        Optional for Consumidor Final. Required for Crédito Fiscal.
+    </p>
+
+    <div style="display:flex;gap:8px;align-items:flex-start;">
+        <input
+            type="text"
+            id="jc-customer-search"
+            class="regular-text"
+            placeholder="Search by name, company, NRC, NIT, phone, email"
+            style="flex:1;min-width:0;"
+        >
+        <button type="button" id="jc-customer-search-btn" class="button">Search</button>
+    </div>
+
+    <div id="jc-customer-results" style="display:none;margin-top:8px;max-height:180px;overflow:auto;border:1px solid #dcdcde;border-radius:4px;background:#fff;"></div>
+
+    <div id="jc-customer-error" style="display:none;margin-top:8px;color:#d63638;font-size:12px;font-weight:600;"></div>
+
+    <div id="jc-selected-customer" style="display:none;margin-top:10px;padding:10px;border:1px solid #c3c4c7;border-radius:4px;background:#f6f7f7;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+            <div>
+                <div id="jc-selected-customer-name" style="font-weight:600;"></div>
+                <div id="jc-selected-customer-meta" style="margin-top:4px;color:#50575e;font-size:12px;line-height:1.4;"></div>
+            </div>
+            <button type="button" id="jc-clear-customer" class="button button-small">Clear</button>
+        </div>
+    </div>
+
+    <!-- Hidden fields for later invoice submit integration -->
+    <input type="hidden" id="jc-sale-customer-id" value="">
+    <input type="hidden" id="jc-sale-customer-name" value="">
+    <input type="hidden" id="jc-sale-customer-company" value="">
+    <input type="hidden" id="jc-sale-customer-nrc" value="">
+    <input type="hidden" id="jc-sale-customer-nit" value="">
+    <input type="hidden" id="jc-sale-customer-address" value="">
+    <input type="hidden" id="jc-sale-customer-city" value="">
+    <input type="hidden" id="jc-sale-customer-phone" value="">
+    <input type="hidden" id="jc-sale-customer-email" value="">
+</div>
+
+
+
+
     <div class="jc-actions">
-      <button id="jc-checkout" class="button button-primary button-large">Complete Sale</button>
+       <button type="button" id="jc-complete-sale" class="button button-primary">Complete Sale</button>
     </div>
 
     <div id="jc-result" class="jc-result"></div>
