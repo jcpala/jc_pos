@@ -117,10 +117,16 @@ function jc_pos_admin_invoices_page() {
         <h3>Ministerio de Hacienda</h3>
         <table class="widefat">
           <tbody>
-          <span style=" padding:4px 8px;background: <?= $inv['mh_status']==='SENT' ? '#d4edda' : '#f8d7da' ?>;
-        border-radius:4px;">
-        <?= esc_html($inv['mh_status']) ?>
-        </span>
+          <tbody>
+<tr>
+  <th style="width:220px;">MH Badge</th>
+  <td>
+    <span style="padding:4px 8px;background: <?= ($inv['mh_status'] === 'SENT' ? '#d4edda' : '#f8d7da') ?>; border-radius:4px;">
+      <?= esc_html((string)($inv['mh_status'] ?? '-')) ?>
+    </span>
+  </td>
+</tr>
+<tr><th style="width:220px;">MH Status</th><td><?php echo esc_html((string)($inv['mh_status'] ?? '-')); ?></td></tr>
           <tr><th style="width:220px;">MH Status</th><td><?php echo esc_html((string)($inv['mh_status'] ?? '-')); ?></td></tr>
           <tr><th>Estado</th><td><?php echo esc_html((string)($inv['mh_estado'] ?? '-')); ?></td></tr>
           <tr><th>Código Generación</th><td><?php echo esc_html((string)($inv['mh_codigo_generacion'] ?? '-')); ?></td></tr>

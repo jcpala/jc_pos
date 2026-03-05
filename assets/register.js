@@ -4,13 +4,16 @@
 
   apiFetch.use(apiFetch.createNonceMiddleware(JC_POS.nonce));
 
-  // DOM
+  // ---------------- DOM ----------------
   const elMenus = document.getElementById("jc-menus");
   const elProducts = document.getElementById("jc-products");
   const elCart = document.getElementById("jc-cart");
   const elSubtotal = document.getElementById("jc-subtotal");
   const elTotal = document.getElementById("jc-total");
   const elResult = document.getElementById("jc-result");
+  const elCashReceived = document.getElementById("jc-cash-received");
+  const elCashExact = document.getElementById("jc-cash-exact");
+  const elChangeDue = document.getElementById("jc-change-due");
 
   const elModal = document.getElementById("jc-modal");
   const elModalTitle = document.getElementById("jc-modal-title");
@@ -28,18 +31,39 @@
   const elRefresh = document.getElementById("jc-refresh");
   const elCheckout = document.getElementById("jc-checkout");
 
-  // Receipt modal DOM
   const elReceiptModal = document.getElementById("jc-receipt-modal");
   const elReceiptBody = document.getElementById("jc-receipt-body");
   const elReceiptClose = document.getElementById("jc-receipt-close");
   const elReceiptPrint = document.getElementById("jc-receipt-print");
   const elReceiptDone = document.getElementById("jc-receipt-done");
 
-  // Document type DOM (NEW)
   const elDocRadios = document.querySelectorAll('input[name="jc_doc_type"]');
   const elDocBadge = document.getElementById("jc-doc-badge");
 
-  // State
+  // Customer picker DOM
+  const elCustomerBox = document.getElementById("jc-register-customer-box");
+  const elCustomerJson = document.getElementById("jc-pos-customer-index");
+  const elCustomerSearch = document.getElementById("jc-customer-search");
+  const elCustomerSearchBtn = document.getElementById("jc-customer-search-btn");
+  const elCustomerResults = document.getElementById("jc-customer-results");
+  const elCustomerError = document.getElementById("jc-customer-error");
+  const elCustomerRequirement = document.getElementById("jc-customer-requirement-text");
+  const elSelectedCustomer = document.getElementById("jc-selected-customer");
+  const elSelectedCustomerName = document.getElementById("jc-selected-customer-name");
+  const elSelectedCustomerMeta = document.getElementById("jc-selected-customer-meta");
+  const elClearCustomer = document.getElementById("jc-clear-customer");
+
+  const elSaleCustomerId = document.getElementById("jc-sale-customer-id");
+  const elSaleCustomerName = document.getElementById("jc-sale-customer-name");
+  const elSaleCustomerCompany = document.getElementById("jc-sale-customer-company");
+  const elSaleCustomerNrc = document.getElementById("jc-sale-customer-nrc");
+  const elSaleCustomerNit = document.getElementById("jc-sale-customer-nit");
+  const elSaleCustomerAddress = document.getElementById("jc-sale-customer-address");
+  const elSaleCustomerCity = document.getElementById("jc-sale-customer-city");
+  const elSaleCustomerPhone = document.getElementById("jc-sale-customer-phone");
+  const elSaleCustomerEmail = document.getElementById("jc-sale-customer-email");
+
+  // ---------------- State ----------------
   let MENUS = [];
   let SIZES = [];
   let TOPPINGS = [];
@@ -48,8 +72,9 @@
   let CART = [];
   let currentMenuId = null;
   let currentProduct = null;
+  let CUSTOMER_INDEX = [];
 
-  // ---------- utils ----------
+  // ---------------- Utils ----------------
   function money(n) {
     const x = Number(n || 0);
     return "$" + (Math.round(x * 100) / 100).toFixed(2);
@@ -62,6 +87,10 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }
+
+  function normalizeText(value) {
+    return String(value || "").trim().toLowerCase();
   }
 
   function apiGet(path) {
@@ -90,9 +119,36 @@
     const tot = afterDiscount + feeAmount();
     if (elSubtotal) elSubtotal.textContent = money(sub);
     if (elTotal) elTotal.textContent = money(tot);
+  
+    updateChangeUI(); // ✅ add this
   }
 
-  // ---------- Document type (NEW) ----------
+  function parseNum(v) {
+    const n = parseFloat(String(v ?? "").trim());
+    return Number.isFinite(n) ? n : 0;
+  }
+  
+  function updateChangeUI() {
+    if (!elCashReceived || !elChangeDue) return;
+  
+    const sub = cartSubtotal();
+    const afterDiscount = applyDiscount(sub);
+    const total = afterDiscount + feeAmount();
+  
+    const cash = parseNum(elCashReceived.value);
+    const change = Math.max(0, Math.round((cash - total) * 100) / 100);
+  
+    elChangeDue.textContent = money(change);
+  
+    // optional visual hint
+    if (cash > 0 && cash < total) {
+      elChangeDue.style.color = "#d63638"; // red if not enough
+    } else {
+      elChangeDue.style.color = "";
+    }
+  }
+
+  // ---------------- Document type ----------------
   function getDocType() {
     const checked = document.querySelector('input[name="jc_doc_type"]:checked');
     const v = (checked?.value || "CONSUMIDOR_FINAL").toUpperCase();
@@ -101,17 +157,32 @@
 
   function updateDocUI() {
     const dt = getDocType();
-    if (!elDocBadge) return;
-    elDocBadge.textContent = dt === "CREDITO_FISCAL" ? "Requiere datos fiscales" : "Venta rápida";
+
+    // if (elDocBadge) {
+    //   elDocBadge.textContent = dt === "CREDITO_FISCAL" ? "Requiere datos fiscales" : "Venta rápida";
+    // }
+
+    updateCustomerRequirementState();
   }
 
   elDocRadios?.forEach((r) => r.addEventListener("change", updateDocUI));
 
-  // Normalize addons into a flat array
+  elCashReceived?.addEventListener("input", updateChangeUI);
+
+  elCashExact?.addEventListener("click", () => {
+    if (!elCashReceived) return;
+    // set cash = current total
+    const sub = cartSubtotal();
+    const afterDiscount = applyDiscount(sub);
+    const total = afterDiscount + feeAmount();
+    elCashReceived.value = String(Math.round(total * 100) / 100);
+    updateChangeUI();
+  });
+
+  // ---------------- Addons helpers ----------------
   function normalizeAddons(addons) {
     if (!addons) return [];
 
-    // object keyed by type
     if (!Array.isArray(addons) && typeof addons === "object") {
       const flat = [];
       Object.keys(addons).forEach((k) => {
@@ -122,7 +193,6 @@
       return flat;
     }
 
-    // flat array
     if (Array.isArray(addons)) return addons;
 
     return [];
@@ -136,7 +206,7 @@
     });
   }
 
-  // ---------- receipt ----------
+  // ---------------- Receipt ----------------
   function openReceiptModal(html) {
     if (!elReceiptModal || !elReceiptBody) return;
     elReceiptBody.innerHTML = html;
@@ -191,14 +261,12 @@
 
       const lines = Array.isArray(dte.cuerpoDocumento) ? dte.cuerpoDocumento : [];
       const rows = lines.length
-        ? lines
-            .map((l) => {
-              const qty = l.cantidad ?? 1;
-              const desc = escapeHtml(l.descripcion ?? "");
-              const price = Number(l.precioUni ?? 0);
-              return `<tr><td>${qty}x ${desc}</td><td style="text-align:right">${money(price)}</td></tr>`;
-            })
-            .join("")
+        ? lines.map((l) => {
+            const qty = l.cantidad ?? 1;
+            const desc = escapeHtml(l.descripcion ?? "");
+            const price = Number(l.precioUni ?? 0);
+            return `<tr><td>${qty}x ${desc}</td><td style="text-align:right">${money(price)}</td></tr>`;
+          }).join("")
         : `<tr><td colspan="2"><em>No items</em></td></tr>`;
 
       const totalPagar = Number(dte.resumen?.totalPagar ?? 0);
@@ -238,16 +306,13 @@
       `;
     }
 
-    // fallback from soldCart
     const rows = (soldCart || []).length
-      ? soldCart
-          .map((l) => {
-            const qty = Number(l.qty || 1);
-            const name = escapeHtml(l.name || "");
-            const lineTotal = Number(l.unit_price || 0) * qty;
-            return `<tr><td>${qty}x ${name}</td><td style="text-align:right">${money(lineTotal)}</td></tr>`;
-          })
-          .join("")
+      ? soldCart.map((l) => {
+          const qty = Number(l.qty || 1);
+          const name = escapeHtml(l.name || "");
+          const lineTotal = Number(l.unit_price || 0) * qty;
+          return `<tr><td>${qty}x ${name}</td><td style="text-align:right">${money(lineTotal)}</td></tr>`;
+        }).join("")
       : `<tr><td colspan="2"><em>No items</em></td></tr>`;
 
     const sub = soldCart.reduce((s, l) => s + Number(l.unit_price || 0) * Number(l.qty || 1), 0);
@@ -268,7 +333,7 @@
     `;
   }
 
-  // ---------- UI ----------
+  // ---------------- UI ----------------
   function renderMenus() {
     if (!elMenus) return;
     elMenus.innerHTML = "";
@@ -290,6 +355,8 @@
   }
 
   function renderProducts(filterText = "") {
+    if (!elProducts) return;
+
     const q = (filterText || "").trim().toLowerCase();
     const list = q ? PRODUCTS.filter((p) => p.name.toLowerCase().includes(q)) : PRODUCTS;
 
@@ -313,8 +380,9 @@
 
       const bottom = document.createElement("div");
       bottom.className = "jc-bottom";
-      bottom.innerHTML = `<span>${money(p.price)}</span> <button class="button button-small">🛒</button>`;
-      bottom.querySelector("button").addEventListener("click", () => openModal(p));
+      bottom.innerHTML = `<span>${money(p.price)}</span> <button class="button button-small" type="button">🛒</button>`;
+
+      bottom.querySelector("button")?.addEventListener("click", () => openModal(p));
 
       card.appendChild(img);
       card.appendChild(name);
@@ -324,6 +392,8 @@
   }
 
   function renderCart() {
+    if (!elCart) return;
+
     elCart.innerHTML = "";
 
     if (!CART.length) {
@@ -349,16 +419,16 @@
         <div class="jc-cart-right">
           <input type="number" min="0.25" step="0.25" value="${Number(l.qty || 1)}" class="jc-qty">
           <div class="jc-lineprice">${money(l.unit_price)}</div>
-          <button class="button button-small jc-remove">X</button>
+          <button class="button button-small jc-remove" type="button">X</button>
         </div>
       `;
 
-      row.querySelector(".jc-remove").addEventListener("click", () => {
+      row.querySelector(".jc-remove")?.addEventListener("click", () => {
         CART.splice(idx, 1);
         renderCart();
       });
 
-      row.querySelector(".jc-qty").addEventListener("change", (e) => {
+      row.querySelector(".jc-qty")?.addEventListener("change", (e) => {
         l.qty = parseFloat(e.target.value || "1") || 1;
         renderCart();
       });
@@ -369,7 +439,7 @@
     updateTotalsUI();
   }
 
-  // ---------- data loading ----------
+  // ---------------- Data loading ----------------
   async function loadBootstrap() {
     if (elResult) elResult.innerHTML = "";
     if (elProducts) elProducts.innerHTML = "<p>Loading...</p>";
@@ -436,7 +506,7 @@
     renderProducts(elSearch?.value || "");
   }
 
-  // ---------- modal ----------
+  // ---------------- Modal ----------------
   function getSelectedToppings() {
     const picks = [];
     elToppings?.querySelectorAll("input[type=checkbox]")?.forEach((cb) => {
@@ -464,9 +534,9 @@
     currentProduct = product;
     if (elModalTitle) elModalTitle.textContent = product.name;
 
-    // SYRUP select
     if (elFlavor) {
       elFlavor.innerHTML = "";
+
       const optDefault = document.createElement("option");
       optDefault.value = "";
       optDefault.dataset.price = "0";
@@ -482,10 +552,10 @@
       });
     }
 
-    // Sizes
     if (elSize) {
       elSize.innerHTML = "";
       const base = parseFloat(product.price || "0");
+
       if (SIZES.length) {
         SIZES.forEach((s) => {
           const delta = parseFloat(s.price_delta || "0");
@@ -495,6 +565,7 @@
           opt.value = String(s.id);
           opt.dataset.price = String(finalPrice);
           opt.textContent = `${s.label} (${money(finalPrice)})`;
+
           if (s.is_default === 1) opt.selected = true;
           elSize.appendChild(opt);
         });
@@ -507,7 +578,6 @@
       }
     }
 
-    // Toppings
     if (elToppings) {
       elToppings.innerHTML = "";
       TOPPINGS.forEach((t) => {
@@ -529,17 +599,242 @@
     currentProduct = null;
   }
 
-  // ---------- checkout ----------
+  // ---------------- Customer picker ----------------
+  function initCustomerIndex() {
+    if (!elCustomerJson) return;
+
+    try {
+      CUSTOMER_INDEX = JSON.parse(elCustomerJson.textContent || "[]");
+    } catch (err) {
+      console.error("JC POS customer JSON parse error:", err);
+      CUSTOMER_INDEX = [];
+    }
+  }
+
+  function customerDisplayName(customer) {
+    const first = String(customer?.first_name || "").trim();
+    const last = String(customer?.last_name || "").trim();
+    const full = `${first} ${last}`.trim();
+
+    if (full) return full;
+    if (String(customer?.company || "").trim()) return String(customer.company).trim();
+    return `Customer #${customer?.id || ""}`;
+  }
+
+  function buildCustomerMeta(customer) {
+    const parts = [];
+
+    if (customer?.company) parts.push(`Company: ${customer.company}`);
+    if (customer?.nrc) parts.push(`NRC: ${customer.nrc}`);
+    if (customer?.nit) parts.push(`NIT: ${customer.nit}`);
+    if (customer?.phone) parts.push(`Phone: ${customer.phone}`);
+
+    return parts.join(" • ");
+  }
+
+  function hasSelectedCustomer() {
+    return !!(elSaleCustomerId && String(elSaleCustomerId.value || "").trim() !== "");
+  }
+
+  function updateCustomerRequirementState() {
+    if (!elCustomerRequirement) return;
+
+    if (getDocType() !== "CREDITO_FISCAL") {
+      elCustomerRequirement.textContent = "Optional for Consumidor Final. Required for Crédito Fiscal.";
+      elCustomerRequirement.style.color = "#50575e";
+      return;
+    }
+
+    if (hasSelectedCustomer()) {
+      elCustomerRequirement.textContent = "Customer selected for Crédito Fiscal.";
+      elCustomerRequirement.style.color = "#008a20";
+    } else {
+      elCustomerRequirement.textContent = "Crédito Fiscal requires a selected customer before completing the sale.";
+      elCustomerRequirement.style.color = "#d63638";
+    }
+  }
+
+  function setCustomerError(message) {
+    if (!elCustomerError) return;
+
+    if (message) {
+      elCustomerError.textContent = message;
+      elCustomerError.style.display = "block";
+    } else {
+      elCustomerError.textContent = "";
+      elCustomerError.style.display = "none";
+    }
+  }
+
+  function clearCustomerResults() {
+    if (!elCustomerResults) return;
+    elCustomerResults.innerHTML = "";
+    elCustomerResults.style.display = "none";
+  }
+
+  function writeCustomerHiddenFields(customer) {
+    if (elSaleCustomerId) elSaleCustomerId.value = customer?.id ? String(customer.id) : "";
+    if (elSaleCustomerName) elSaleCustomerName.value = customer ? customerDisplayName(customer) : "";
+    if (elSaleCustomerCompany) elSaleCustomerCompany.value = customer?.company ? String(customer.company) : "";
+    if (elSaleCustomerNrc) elSaleCustomerNrc.value = customer?.nrc ? String(customer.nrc) : "";
+    if (elSaleCustomerNit) elSaleCustomerNit.value = customer?.nit ? String(customer.nit) : "";
+    if (elSaleCustomerAddress) elSaleCustomerAddress.value = customer?.address ? String(customer.address) : "";
+    if (elSaleCustomerCity) elSaleCustomerCity.value = customer?.city ? String(customer.city) : "";
+    if (elSaleCustomerPhone) elSaleCustomerPhone.value = customer?.phone ? String(customer.phone) : "";
+    if (elSaleCustomerEmail) elSaleCustomerEmail.value = customer?.email ? String(customer.email) : "";
+  }
+
+  function selectCustomer(customer) {
+    writeCustomerHiddenFields(customer);
+    updateCustomerRequirementState();
+  
+    if (elResult) {
+      elResult.innerHTML = "";
+    }
+  
+    if (elCustomerSearch) {
+      elCustomerSearch.value = customerDisplayName(customer);
+    }
+  
+    // Hide the detailed selected box to keep the UI compact
+    if (elSelectedCustomerName) {
+      elSelectedCustomerName.textContent = customerDisplayName(customer);
+    }
+  
+    if (elSelectedCustomerMeta) {
+      elSelectedCustomerMeta.textContent = buildCustomerMeta(customer);
+    }
+  
+    if (elSelectedCustomer) {
+      elSelectedCustomer.style.display = "none";
+    }
+  
+    setCustomerError("");
+    clearCustomerResults();
+  }
+
+  function clearSelectedCustomer() {
+    writeCustomerHiddenFields(null);
+
+    if (elSelectedCustomerName) elSelectedCustomerName.textContent = "";
+    if (elSelectedCustomerMeta) elSelectedCustomerMeta.textContent = "";
+    if (elSelectedCustomer) elSelectedCustomer.style.display = "none";
+    if (elCustomerSearch) elCustomerSearch.value = "";
+
+    updateCustomerRequirementState();
+
+    if (elResult) elResult.innerHTML = "";
+
+    setCustomerError("");
+    clearCustomerResults();
+  }
+
+  function customerMatches(customer, query) {
+    const q = normalizeText(query);
+
+    if (!q) return true;
+
+    const haystack = [
+      customer?.first_name,
+      customer?.last_name,
+      customer?.company,
+      customer?.nrc,
+      customer?.nit,
+      customer?.phone,
+      customer?.email,
+    ].map(normalizeText).join(" ");
+
+    return haystack.includes(q);
+  }
+
+  function renderCustomerResults(list) {
+    if (!elCustomerResults) return;
+
+    elCustomerResults.innerHTML = "";
+
+    if (!list.length) {
+      elCustomerResults.innerHTML =
+        '<div style="padding:8px 10px;color:#50575e;font-size:12px;">No matching customers found.</div>';
+      elCustomerResults.style.display = "block";
+      return;
+    }
+
+    list.forEach((customer) => {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "button-link";
+      row.style.display = "block";
+      row.style.width = "100%";
+      row.style.textAlign = "left";
+      row.style.padding = "8px 10px";
+      row.style.borderBottom = "1px solid #f0f0f1";
+      row.style.textDecoration = "none";
+      row.style.color = "#1d2327";
+      row.style.background = "#fff";
+      row.style.cursor = "pointer";
+
+      row.innerHTML =
+        `<div style="font-weight:600;">${escapeHtml(customerDisplayName(customer))}</div>` +
+        `<div style="margin-top:3px;color:#50575e;font-size:12px;">${escapeHtml(buildCustomerMeta(customer))}</div>`;
+
+      row.addEventListener("click", () => selectCustomer(customer));
+      elCustomerResults.appendChild(row);
+    });
+
+    elCustomerResults.style.display = "block";
+  }
+
+  function runCustomerSearch() {
+    if (!elCustomerSearch) return;
+
+    const query = elCustomerSearch.value || "";
+    const q = normalizeText(query);
+
+    if (elResult) elResult.innerHTML = "";
+
+    setCustomerError("");
+    clearCustomerResults();
+
+    if (!q) {
+      setCustomerError("Enter a name, company, NRC, NIT, phone, or email to search.");
+      return;
+    }
+
+    const matches = CUSTOMER_INDEX.filter((customer) => customerMatches(customer, q)).slice(0, 20);
+    renderCustomerResults(matches);
+  }
+
+  function initCustomerPicker() {
+    if (!elCustomerBox || !elCustomerJson) return;
+
+    initCustomerIndex();
+
+    elCustomerSearchBtn?.addEventListener("click", runCustomerSearch);
+
+    elCustomerSearch?.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        runCustomerSearch();
+      }
+    });
+
+    elClearCustomer?.addEventListener("click", () => {
+      clearSelectedCustomer();
+      if (elCustomerSearch) elCustomerSearch.focus();
+    });
+
+    updateCustomerRequirementState();
+  }
+
+  // ---------------- Checkout ----------------
   async function checkout() {
     if (!CART.length) return;
 
     const soldCart = CART.map((x) => JSON.parse(JSON.stringify(x)));
-    if (elResult) elResult.innerHTML = "<p>Processing...</p>";
-    
-    const docType =
-    document.querySelector('input[name="jc_doc_type"]:checked')?.value ||
-    "CONSUMIDOR_FINAL"
 
+    if (elResult) {
+      elResult.innerHTML = "<p>Processing...</p>";
+    }
 
     const payload = {
       cart: CART,
@@ -548,6 +843,16 @@
       discount_value: parseFloat(elDiscountValue?.value || "0") || 0,
       fee_label: elFeeLabel?.value || "",
       fee_value: feeAmount(),
+
+      customer_id: parseInt(elSaleCustomerId?.value || "0", 10) || 0,
+      customer_name: elSaleCustomerName?.value || "",
+      customer_company: elSaleCustomerCompany?.value || "",
+      customer_nrc: elSaleCustomerNrc?.value || "",
+      customer_nit: elSaleCustomerNit?.value || "",
+      customer_address: elSaleCustomerAddress?.value || "",
+      customer_city: elSaleCustomerCity?.value || "",
+      customer_phone: elSaleCustomerPhone?.value || "",
+      customer_email: elSaleCustomerEmail?.value || "",
     };
 
     let res;
@@ -559,26 +864,32 @@
       });
     } catch (err) {
       console.error("Checkout error:", err);
-      const msg = err?.data?.message || err?.message || "Request failed";
-      if (elResult) elResult.innerHTML = `<p class="jc-bad">Error: ${escapeHtml(msg)}</p>`;
+      const msg = err?.data?.message || err?.data?.error || err?.message || "Request failed";
+      if (elResult) {
+        elResult.innerHTML = `<p class="jc-bad">Error: ${escapeHtml(msg)}</p>`;
+      }
       return;
     }
 
     if (!res?.success) {
-      if (elResult) elResult.innerHTML = `<p class="jc-bad">Error: ${escapeHtml(res?.error || "Unknown")}</p>`;
+      if (elResult) {
+        elResult.innerHTML = `<p class="jc-bad">Error: ${escapeHtml(res?.error || "Unknown")}</p>`;
+      }
       return;
     }
 
     const receiptHtml = buildReceiptHtml(res, soldCart);
     const mh = res.mh || {};
 
-    // reset for next sale
     CART = [];
     renderCart();
+    if (elCashReceived) elCashReceived.value = "0";
+    if (elChangeDue) elChangeDue.textContent = money(0);
     if (elDiscountType) elDiscountType.value = "none";
     if (elDiscountValue) elDiscountValue.value = "0";
     if (elFeeLabel) elFeeLabel.value = "";
     if (elFeeValue) elFeeValue.value = "0";
+
     updateTotalsUI();
 
     if (elResult) {
@@ -602,15 +913,13 @@
       openReceiptModal(receiptHtml);
     });
 
-    // Print button prints the same receipt html
-    if (elReceiptPrint) elReceiptPrint.onclick = () => printReceipt(receiptHtml);
+    if (elReceiptPrint) {
+      elReceiptPrint.onclick = () => printReceipt(receiptHtml);
+    }
   }
 
-  // ---------- events ----------
+  // ---------------- Events ----------------
   document.getElementById("jc-modal-close")?.addEventListener("click", closeModal);
-  elSize?.addEventListener("change", updateItemTotal);
-  elFlavor?.addEventListener("change", updateItemTotal);
-  elToppings?.addEventListener("change", updateItemTotal);
 
   document.getElementById("jc-add-to-cart")?.addEventListener("click", () => {
     if (!currentProduct) return;
@@ -645,6 +954,10 @@
     renderCart();
   });
 
+  elSize?.addEventListener("change", updateItemTotal);
+  elFlavor?.addEventListener("change", updateItemTotal);
+  elToppings?.addEventListener("change", updateItemTotal);
+
   elRefresh?.addEventListener("click", loadBootstrap);
   elCheckout?.addEventListener("click", checkout);
   elSearch?.addEventListener("input", (e) => renderProducts(e.target.value || ""));
@@ -654,347 +967,9 @@
   elFeeLabel?.addEventListener("input", renderCart);
   elFeeValue?.addEventListener("input", renderCart);
 
-  // boot
-  updateDocUI(); // ✅ NEW
+  // ---------------- Boot ----------------
+  updateDocUI();
+  initCustomerPicker();
   loadBootstrap();
   renderCart();
-
-  (function () {
-    function onReady(fn) {
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', fn);
-        } else {
-            fn();
-        }
-    }
-
-    onReady(function () {
-        var customerBox = document.getElementById('jc-register-customer-box');
-        var jsonEl = document.getElementById('jc-pos-customer-index');
-
-        if (!customerBox || !jsonEl) {
-            return;
-        }
-
-        var customers = [];
-        try {
-            customers = JSON.parse(jsonEl.textContent || '[]');
-        } catch (err) {
-            customers = [];
-        }
-
-        var searchInput = document.getElementById('jc-customer-search');
-        var searchBtn = document.getElementById('jc-customer-search-btn');
-        var resultsBox = document.getElementById('jc-customer-results');
-        var errorBox = document.getElementById('jc-customer-error');
-        var selectedBox = document.getElementById('jc-selected-customer');
-        var selectedName = document.getElementById('jc-selected-customer-name');
-        var selectedMeta = document.getElementById('jc-selected-customer-meta');
-        var clearBtn = document.getElementById('jc-clear-customer');
-        var requirementText = document.getElementById('jc-customer-requirement-text');
-
-        var hiddenFields = {
-            id: document.getElementById('jc-sale-customer-id'),
-            name: document.getElementById('jc-sale-customer-name'),
-            company: document.getElementById('jc-sale-customer-company'),
-            nrc: document.getElementById('jc-sale-customer-nrc'),
-            nit: document.getElementById('jc-sale-customer-nit'),
-            address: document.getElementById('jc-sale-customer-address'),
-            city: document.getElementById('jc-sale-customer-city'),
-            phone: document.getElementById('jc-sale-customer-phone'),
-            email: document.getElementById('jc-sale-customer-email')
-        };
-
-        var documentTypeRadios = Array.prototype.slice.call(
-            document.querySelectorAll('input[type="radio"][name="document_type"]')
-        );
-
-        function getCheckedDocumentType() {
-            for (var i = 0; i < documentTypeRadios.length; i++) {
-                if (documentTypeRadios[i].checked) {
-                    return documentTypeRadios[i].value;
-                }
-            }
-            return '';
-        }
-
-        function isCreditoFiscal() {
-            var value = (getCheckedDocumentType() || '').toString().trim().toUpperCase();
-
-            if (!value) {
-                return false;
-            }
-
-            return value.indexOf('CREDITO') !== -1 && value.indexOf('FISCAL') !== -1;
-        }
-
-        function normalize(value) {
-            return (value || '').toString().trim().toLowerCase();
-        }
-
-        function escapeHtml(value) {
-            return (value || '')
-                .toString()
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
-
-        function customerDisplayName(customer) {
-            var first = (customer.first_name || '').toString().trim();
-            var last = (customer.last_name || '').toString().trim();
-            var full = (first + ' ' + last).trim();
-
-            if (full !== '') {
-                return full;
-            }
-
-            if ((customer.company || '').toString().trim() !== '') {
-                return customer.company.toString().trim();
-            }
-
-            return 'Customer #' + (customer.id || '');
-        }
-
-        function buildCustomerMeta(customer) {
-            var parts = [];
-
-            if (customer.company) {
-                parts.push('Company: ' + customer.company);
-            }
-            if (customer.nrc) {
-                parts.push('NRC: ' + customer.nrc);
-            }
-            if (customer.nit) {
-                parts.push('NIT: ' + customer.nit);
-            }
-            if (customer.phone) {
-                parts.push('Phone: ' + customer.phone);
-            }
-
-            return parts.join(' • ');
-        }
-
-        function setError(message) {
-            if (!errorBox) {
-                return;
-            }
-
-            if (message) {
-                errorBox.textContent = message;
-                errorBox.style.display = 'block';
-            } else {
-                errorBox.textContent = '';
-                errorBox.style.display = 'none';
-            }
-        }
-
-        function clearResults() {
-            if (!resultsBox) {
-                return;
-            }
-            resultsBox.innerHTML = '';
-            resultsBox.style.display = 'none';
-        }
-
-        function fillHiddenFields(customer) {
-            hiddenFields.id.value = customer && customer.id ? String(customer.id) : '';
-            hiddenFields.name.value = customer ? customerDisplayName(customer) : '';
-            hiddenFields.company.value = customer && customer.company ? String(customer.company) : '';
-            hiddenFields.nrc.value = customer && customer.nrc ? String(customer.nrc) : '';
-            hiddenFields.nit.value = customer && customer.nit ? String(customer.nit) : '';
-            hiddenFields.address.value = customer && customer.address ? String(customer.address) : '';
-            hiddenFields.city.value = customer && customer.city ? String(customer.city) : '';
-            hiddenFields.phone.value = customer && customer.phone ? String(customer.phone) : '';
-            hiddenFields.email.value = customer && customer.email ? String(customer.email) : '';
-        }
-
-        function selectCustomer(customer) {
-            fillHiddenFields(customer);
-
-            if (selectedName) {
-                selectedName.textContent = customerDisplayName(customer);
-            }
-            if (selectedMeta) {
-                selectedMeta.textContent = buildCustomerMeta(customer);
-            }
-            if (selectedBox) {
-                selectedBox.style.display = 'block';
-            }
-
-            setError('');
-            clearResults();
-
-            if (searchInput) {
-                searchInput.value = customerDisplayName(customer);
-            }
-        }
-
-        function clearSelectedCustomer() {
-            fillHiddenFields(null);
-
-            if (selectedName) {
-                selectedName.textContent = '';
-            }
-            if (selectedMeta) {
-                selectedMeta.textContent = '';
-            }
-            if (selectedBox) {
-                selectedBox.style.display = 'none';
-            }
-
-            setError('');
-
-            if (searchInput) {
-                searchInput.value = '';
-            }
-        }
-
-        function matchesCustomer(customer, query) {
-            var q = normalize(query);
-
-            if (q === '') {
-                return true;
-            }
-
-            var haystack = [
-                customer.first_name,
-                customer.last_name,
-                customer.company,
-                customer.nrc,
-                customer.nit,
-                customer.phone,
-                customer.email
-            ].map(normalize).join(' ');
-
-            return haystack.indexOf(q) !== -1;
-        }
-
-        function renderResults(list) {
-            if (!resultsBox) {
-                return;
-            }
-
-            resultsBox.innerHTML = '';
-
-            if (!list.length) {
-                resultsBox.innerHTML =
-                    '<div style="padding:8px 10px;color:#50575e;font-size:12px;">No matching customers found.</div>';
-                resultsBox.style.display = 'block';
-                return;
-            }
-
-            for (var i = 0; i < list.length; i++) {
-                (function (customer) {
-                    var row = document.createElement('button');
-                    row.type = 'button';
-                    row.className = 'button-link';
-                    row.style.display = 'block';
-                    row.style.width = '100%';
-                    row.style.textAlign = 'left';
-                    row.style.padding = '8px 10px';
-                    row.style.borderBottom = '1px solid #f0f0f1';
-                    row.style.textDecoration = 'none';
-                    row.style.color = '#1d2327';
-                    row.style.background = '#fff';
-                    row.style.cursor = 'pointer';
-
-                    row.innerHTML =
-                        '<div style="font-weight:600;">' + escapeHtml(customerDisplayName(customer)) + '</div>' +
-                        '<div style="margin-top:3px;color:#50575e;font-size:12px;">' +
-                        escapeHtml(buildCustomerMeta(customer)) +
-                        '</div>';
-
-                    row.addEventListener('click', function () {
-                        selectCustomer(customer);
-                    });
-
-                    resultsBox.appendChild(row);
-                })(list[i]);
-            }
-
-            resultsBox.style.display = 'block';
-        }
-
-        function runCustomerSearch() {
-            var query = searchInput ? searchInput.value : '';
-            var q = normalize(query);
-
-            setError('');
-            clearResults();
-
-            if (q === '') {
-                setError('Enter a name, company, NRC, NIT, phone, or email to search.');
-                return;
-            }
-
-            var matches = customers.filter(function (customer) {
-                return matchesCustomer(customer, q);
-            }).slice(0, 20);
-
-            renderResults(matches);
-        }
-
-        function updateRequirementState() {
-            if (!requirementText) {
-                return;
-            }
-
-            if (isCreditoFiscal()) {
-                requirementText.textContent = 'Crédito Fiscal requires a selected customer before completing the sale.';
-                requirementText.style.color = '#d63638';
-            } else {
-                requirementText.textContent = 'Optional for Consumidor Final. Required for Crédito Fiscal.';
-                requirementText.style.color = '#50575e';
-            }
-        }
-
-        if (searchBtn) {
-            searchBtn.addEventListener('click', function () {
-                try {
-                    runCustomerSearch();
-                } catch (err) {
-                    console.error('JC POS customer search error:', err);
-                }
-            });
-        }
-
-        if (searchInput) {
-            searchInput.addEventListener('keydown', function (event) {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    runCustomerSearch();
-                }
-            });
-        }
-
-        if (clearBtn) {
-            clearBtn.addEventListener('click', function () {
-                clearSelectedCustomer();
-                clearResults();
-
-                if (searchInput) {
-                    searchInput.focus();
-                }
-            });
-        }
-
-        for (var i = 0; i < documentTypeRadios.length; i++) {
-            documentTypeRadios[i].addEventListener('change', updateRequirementState);
-        }
-
-        updateRequirementState();
-    });
-})();
-
-
-
-
-
-
-
-
-
 })();
