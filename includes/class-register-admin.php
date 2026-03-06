@@ -24,17 +24,18 @@ class JC_Register_Admin {
         if ($hook !== 'toplevel_page_jc-register') {
             return;
         }
-
-        $css_path = plugin_dir_path(__FILE__) . '../assets/register.css';
-        $js_path  = plugin_dir_path(__FILE__) . '../assets/register.js';
-
+    
+        $css_path   = plugin_dir_path(__FILE__) . '../assets/register.css';
+        $js_path    = plugin_dir_path(__FILE__) . '../assets/register.js';
+        $qr_js_path = plugin_dir_path(__FILE__) . '../assets/qrcode.min.js';
+    
         wp_enqueue_style(
             'jc-register',
             plugins_url('../assets/register.css', __FILE__),
             [],
             file_exists($css_path) ? (string) filemtime($css_path) : '1.0.0'
         );
-
+    
         // Hide WP notices/footer only on register page
         wp_add_inline_style('jc-register', '
             #wpbody-content > .notice,
@@ -44,21 +45,31 @@ class JC_Register_Admin {
             #wpbody-content > .is-dismissible { display:none !important; }
             #wpfooter { display:none !important; }
         ');
-
+    
+        // ✅ QR library (must load before register.js)
+        if (file_exists($qr_js_path)) {
+            wp_enqueue_script(
+                'jc-qrcode',
+                plugins_url('../assets/qrcode.min.js', __FILE__),
+                [],
+                (string) filemtime($qr_js_path),
+                true
+            );
+        }
+    
         wp_enqueue_script(
             'jc-register',
             plugins_url('../assets/register.js', __FILE__),
-            ['wp-api-fetch'],
+            file_exists($qr_js_path) ? ['wp-api-fetch', 'jc-qrcode'] : ['wp-api-fetch'],
             file_exists($js_path) ? (string) filemtime($js_path) : '1.0.0',
             true
         );
-
+    
         wp_localize_script('jc-register', 'JC_POS', [
             'apiBase' => esc_url_raw(rest_url('jc-pos/v1')),
             'nonce'   => wp_create_nonce('wp_rest'),
         ]);
     }
-
     public static function page() {
         if (!current_user_can('manage_woocommerce')) {
             wp_die('No permission.');
@@ -241,21 +252,48 @@ class JC_Register_Admin {
         </div>
 
         <!-- Receipt Modal -->
-        <div id="jc-receipt-modal" class="jc-modal jc-hidden" aria-hidden="true">
-            <div class="jc-modal-card" style="width:520px; max-width:95vw;">
-                <div class="jc-modal-header">
-                    <h3>Receipt</h3>
-                    <button id="jc-receipt-close" class="button" type="button">X</button>
-                </div>
+<!-- Receipt Modal -->
+<div id="jc-receipt-modal" class="jc-modal jc-hidden" aria-hidden="true">
+  <div class="jc-modal-card" style="width:520px; max-width:95vw;">
+    <div class="jc-modal-header">
+      <h3>Receipt</h3>
+      <button id="jc-receipt-close" class="button" type="button">X</button>
+    </div>
 
-                <div class="jc-modal-body" id="jc-receipt-body"></div>
+    <div class="jc-modal-body">
+      <!-- Receipt HTML gets injected here -->
+      <div id="jc-receipt-body"></div>
 
-                <div class="jc-modal-footer" style="display:flex; gap:8px; justify-content:flex-end;">
-                    <button id="jc-receipt-print" class="button" type="button">Print</button>
-                    <button id="jc-receipt-done" class="button button-primary" type="button">Done</button>
-                </div>
-            </div>
+      <!-- MH box (employee view / debug) -->
+      <div id="jc-mh-box" style="margin-top:10px; padding:10px; border:1px solid #dcdcde; border-radius:10px; background:#fff;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <strong>MH Status</strong>
+          <span id="jc-mh-pill" style="padding:3px 8px; border-radius:999px; font-size:12px;"></span>
         </div>
+
+        <div id="jc-mh-summary" style="margin-top:6px; font-size:12px; color:#50575e;"></div>
+
+        <!-- ✅ QR area (what you’ll keep in production) -->
+        <div id="jc-mh-qr-wrap" style="margin-top:10px; display:none;">
+          <div style="font-size:12px; color:#50575e; margin-bottom:6px;">QR (selloRecibido)</div>
+          <div id="jc-mh-qr" style="display:flex; justify-content:center;"></div>
+        </div>
+
+        <!-- Debug details (hide in production if you want) -->
+        <details id="jc-mh-details" style="margin-top:8px;">
+          <summary style="cursor:pointer;">Details</summary>
+          <pre id="jc-mh-json" style="white-space:pre-wrap; margin:8px 0 0; max-height:160px; overflow:auto;"></pre>
+        </details>
+      </div>
+    </div>
+
+    <div class="jc-modal-footer" style="display:flex; gap:8px; justify-content:flex-end; align-items:center;">
+      <button id="jc-receipt-print" class="button" type="button">Print</button>
+      <button id="jc-receipt-new-sale" class="button button-primary" type="button">New Sale</button>
+      <button id="jc-receipt-close-btn" class="button" type="button">Close</button>
+    </div>
+  </div>
+</div>
         <?php
     }
 }

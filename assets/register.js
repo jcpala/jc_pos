@@ -1,67 +1,88 @@
+/* assets/register.js */
 (function () {
+  "use strict";
+
   const apiFetch = window.wp?.apiFetch;
   if (!apiFetch || !window.JC_POS?.nonce) return;
 
   apiFetch.use(apiFetch.createNonceMiddleware(JC_POS.nonce));
 
-  // ---------------- DOM ----------------
-  const elMenus = document.getElementById("jc-menus");
-  const elProducts = document.getElementById("jc-products");
-  const elCart = document.getElementById("jc-cart");
-  const elSubtotal = document.getElementById("jc-subtotal");
-  const elTotal = document.getElementById("jc-total");
-  const elResult = document.getElementById("jc-result");
-  const elCashReceived = document.getElementById("jc-cash-received");
-  const elCashExact = document.getElementById("jc-cash-exact");
-  const elChangeDue = document.getElementById("jc-change-due");
+  // ---------------- DOM helpers ----------------
+  const byId = (id) => document.getElementById(id);
 
-  const elModal = document.getElementById("jc-modal");
-  const elModalTitle = document.getElementById("jc-modal-title");
-  const elSize = document.getElementById("jc-opt-size");
-  const elFlavor = document.getElementById("jc-opt-flavor");
-  const elToppings = document.getElementById("jc-opt-toppings");
-  const elItemTotal = document.getElementById("jc-item-total");
+  // Main UI
+  const elMenus = byId("jc-menus");
+  const elProducts = byId("jc-products");
+  const elCart = byId("jc-cart");
+  const elSubtotal = byId("jc-subtotal");
+  const elTotal = byId("jc-total");
+  const elResult = byId("jc-result");
 
-  const elDiscountType = document.getElementById("jc-discount-type");
-  const elDiscountValue = document.getElementById("jc-discount-value");
-  const elFeeLabel = document.getElementById("jc-fee-label");
-  const elFeeValue = document.getElementById("jc-fee-value");
+  const elSearch = byId("jc-search");
+  const elRefresh = byId("jc-refresh");
+  const elCheckout = byId("jc-checkout");
 
-  const elSearch = document.getElementById("jc-search");
-  const elRefresh = document.getElementById("jc-refresh");
-  const elCheckout = document.getElementById("jc-checkout");
+  const elDiscountType = byId("jc-discount-type");
+  const elDiscountValue = byId("jc-discount-value");
+  const elFeeLabel = byId("jc-fee-label");
+  const elFeeValue = byId("jc-fee-value");
 
-  const elReceiptModal = document.getElementById("jc-receipt-modal");
-  const elReceiptBody = document.getElementById("jc-receipt-body");
-  const elReceiptClose = document.getElementById("jc-receipt-close");
-  const elReceiptPrint = document.getElementById("jc-receipt-print");
-  const elReceiptDone = document.getElementById("jc-receipt-done");
+  // Cash/change (optional – only if your page has these)
+  const elCashReceived = byId("jc-cash-received");
+  const elCashExact = byId("jc-cash-exact");
+  const elChangeDue = byId("jc-change-due");
 
+  // Product modal
+  const elModal = byId("jc-modal");
+  const elModalTitle = byId("jc-modal-title");
+  const elSize = byId("jc-opt-size");
+  const elFlavor = byId("jc-opt-flavor");
+  const elToppings = byId("jc-opt-toppings");
+  const elItemTotal = byId("jc-item-total");
+  const elModalClose = byId("jc-modal-close");
+  const elAddToCart = byId("jc-add-to-cart");
+
+  // Receipt modal
+  const elReceiptModal = byId("jc-receipt-modal");
+  const elReceiptBody = byId("jc-receipt-body");
+  const elReceiptCloseX = byId("jc-receipt-close");
+  const elReceiptPrint = byId("jc-receipt-print");
+  const elReceiptNewSale = byId("jc-receipt-new-sale");
+  const elReceiptCloseBtn = byId("jc-receipt-close-btn");
+
+  // MH box inside receipt modal
+  const elMhBox = byId("jc-mh-box");
+  const elMhPill = byId("jc-mh-pill");
+  const elMhSummary = byId("jc-mh-summary");
+  const elMhDetails = byId("jc-mh-details");
+  const elMhJson = byId("jc-mh-json");
+  const elQrWrap = byId("jc-mh-qr-wrap");
+  const elQr = byId("jc-mh-qr");
+
+  // Document type
   const elDocRadios = document.querySelectorAll('input[name="jc_doc_type"]');
-  const elDocBadge = document.getElementById("jc-doc-badge");
+  const elDocBadge = byId("jc-doc-badge");
 
-  // Customer picker DOM
-  const elCustomerBox = document.getElementById("jc-register-customer-box");
-  const elCustomerJson = document.getElementById("jc-pos-customer-index");
-  const elCustomerSearch = document.getElementById("jc-customer-search");
-  const elCustomerSearchBtn = document.getElementById("jc-customer-search-btn");
-  const elCustomerResults = document.getElementById("jc-customer-results");
-  const elCustomerError = document.getElementById("jc-customer-error");
-  const elCustomerRequirement = document.getElementById("jc-customer-requirement-text");
-  const elSelectedCustomer = document.getElementById("jc-selected-customer");
-  const elSelectedCustomerName = document.getElementById("jc-selected-customer-name");
-  const elSelectedCustomerMeta = document.getElementById("jc-selected-customer-meta");
-  const elClearCustomer = document.getElementById("jc-clear-customer");
+  // Customer picker
+  const elCustomerBox = byId("jc-register-customer-box");
+  const elCustomerJson = byId("jc-pos-customer-index");
+  const elCustomerSearch = byId("jc-customer-search");
+  const elCustomerSearchBtn = byId("jc-customer-search-btn");
+  const elCustomerResults = byId("jc-customer-results");
+  const elCustomerError = byId("jc-customer-error");
+  const elCustomerRequirement = byId("jc-customer-requirement-text");
+  const elClearCustomer = byId("jc-clear-customer");
 
-  const elSaleCustomerId = document.getElementById("jc-sale-customer-id");
-  const elSaleCustomerName = document.getElementById("jc-sale-customer-name");
-  const elSaleCustomerCompany = document.getElementById("jc-sale-customer-company");
-  const elSaleCustomerNrc = document.getElementById("jc-sale-customer-nrc");
-  const elSaleCustomerNit = document.getElementById("jc-sale-customer-nit");
-  const elSaleCustomerAddress = document.getElementById("jc-sale-customer-address");
-  const elSaleCustomerCity = document.getElementById("jc-sale-customer-city");
-  const elSaleCustomerPhone = document.getElementById("jc-sale-customer-phone");
-  const elSaleCustomerEmail = document.getElementById("jc-sale-customer-email");
+  // Hidden customer fields
+  const elSaleCustomerId = byId("jc-sale-customer-id");
+  const elSaleCustomerName = byId("jc-sale-customer-name");
+  const elSaleCustomerCompany = byId("jc-sale-customer-company");
+  const elSaleCustomerNrc = byId("jc-sale-customer-nrc");
+  const elSaleCustomerNit = byId("jc-sale-customer-nit");
+  const elSaleCustomerAddress = byId("jc-sale-customer-address");
+  const elSaleCustomerCity = byId("jc-sale-customer-city");
+  const elSaleCustomerPhone = byId("jc-sale-customer-phone");
+  const elSaleCustomerEmail = byId("jc-sale-customer-email");
 
   // ---------------- State ----------------
   let MENUS = [];
@@ -93,10 +114,16 @@
     return String(value || "").trim().toLowerCase();
   }
 
+  function parseNum(v) {
+    const n = parseFloat(String(v ?? "").trim());
+    return Number.isFinite(n) ? n : 0;
+  }
+
   function apiGet(path) {
     return apiFetch({ path: "/jc-pos/v1" + path });
   }
 
+  // ---------------- Totals + change ----------------
   function feeAmount() {
     return Math.max(0, parseFloat(elFeeValue?.value || "0") || 0);
   }
@@ -113,39 +140,29 @@
     return subtotal;
   }
 
-  function updateTotalsUI() {
+  function cartTotal() {
     const sub = cartSubtotal();
     const afterDiscount = applyDiscount(sub);
-    const tot = afterDiscount + feeAmount();
-    if (elSubtotal) elSubtotal.textContent = money(sub);
-    if (elTotal) elTotal.textContent = money(tot);
-  
-    updateChangeUI(); // ✅ add this
+    return Math.round((afterDiscount + feeAmount()) * 100) / 100;
   }
 
-  function parseNum(v) {
-    const n = parseFloat(String(v ?? "").trim());
-    return Number.isFinite(n) ? n : 0;
-  }
-  
   function updateChangeUI() {
     if (!elCashReceived || !elChangeDue) return;
-  
-    const sub = cartSubtotal();
-    const afterDiscount = applyDiscount(sub);
-    const total = afterDiscount + feeAmount();
-  
+
+    const total = cartTotal();
     const cash = parseNum(elCashReceived.value);
     const change = Math.max(0, Math.round((cash - total) * 100) / 100);
-  
+
     elChangeDue.textContent = money(change);
-  
-    // optional visual hint
-    if (cash > 0 && cash < total) {
-      elChangeDue.style.color = "#d63638"; // red if not enough
-    } else {
-      elChangeDue.style.color = "";
-    }
+    elChangeDue.style.color = cash > 0 && cash < total ? "#d63638" : "";
+  }
+
+  function updateTotalsUI() {
+    const sub = cartSubtotal();
+    const tot = cartTotal();
+    if (elSubtotal) elSubtotal.textContent = money(sub);
+    if (elTotal) elTotal.textContent = money(tot);
+    updateChangeUI();
   }
 
   // ---------------- Document type ----------------
@@ -155,34 +172,47 @@
     return v === "CREDITO_FISCAL" ? "CREDITO_FISCAL" : "CONSUMIDOR_FINAL";
   }
 
+  function hasSelectedCustomer() {
+    return !!(elSaleCustomerId && String(elSaleCustomerId.value || "").trim() !== "");
+  }
+
+  function updateCustomerRequirementState() {
+    if (!elCustomerRequirement) return;
+
+    if (getDocType() !== "CREDITO_FISCAL") {
+      elCustomerRequirement.textContent = "Optional for Consumidor Final. Required for Crédito Fiscal.";
+      elCustomerRequirement.style.color = "#50575e";
+      return;
+    }
+
+    if (hasSelectedCustomer()) {
+      elCustomerRequirement.textContent = "Customer selected for Crédito Fiscal.";
+      elCustomerRequirement.style.color = "#008a20";
+    } else {
+      elCustomerRequirement.textContent = "Crédito Fiscal requires a selected customer before completing the sale.";
+      elCustomerRequirement.style.color = "#d63638";
+    }
+  }
+
   function updateDocUI() {
     const dt = getDocType();
-
-    // if (elDocBadge) {
-    //   elDocBadge.textContent = dt === "CREDITO_FISCAL" ? "Requiere datos fiscales" : "Venta rápida";
-    // }
-
+    if (elDocBadge) elDocBadge.textContent = dt === "CREDITO_FISCAL" ? "Requiere datos fiscales" : "Venta rápida";
     updateCustomerRequirementState();
   }
 
   elDocRadios?.forEach((r) => r.addEventListener("change", updateDocUI));
 
+  // Cash events (optional)
   elCashReceived?.addEventListener("input", updateChangeUI);
-
   elCashExact?.addEventListener("click", () => {
     if (!elCashReceived) return;
-    // set cash = current total
-    const sub = cartSubtotal();
-    const afterDiscount = applyDiscount(sub);
-    const total = afterDiscount + feeAmount();
-    elCashReceived.value = String(Math.round(total * 100) / 100);
+    elCashReceived.value = String(cartTotal());
     updateChangeUI();
   });
 
   // ---------------- Addons helpers ----------------
   function normalizeAddons(addons) {
     if (!addons) return [];
-
     if (!Array.isArray(addons) && typeof addons === "object") {
       const flat = [];
       Object.keys(addons).forEach((k) => {
@@ -192,21 +222,16 @@
       });
       return flat;
     }
-
     if (Array.isArray(addons)) return addons;
-
     return [];
   }
 
   function pickByType(allAddons, typeName) {
     const want = String(typeName).toUpperCase();
-    return allAddons.filter((a) => {
-      const t = String(a.addon_type || a.type || a.group || "").toUpperCase();
-      return t === want;
-    });
+    return allAddons.filter((a) => String(a.addon_type || a.type || a.group || "").toUpperCase() === want);
   }
 
-  // ---------------- Receipt ----------------
+  // ---------------- Receipt modal + MH UI + QR ----------------
   function openReceiptModal(html) {
     if (!elReceiptModal || !elReceiptBody) return;
     elReceiptBody.innerHTML = html;
@@ -220,8 +245,110 @@
     elReceiptModal.setAttribute("aria-hidden", "true");
   }
 
-  elReceiptClose?.addEventListener("click", closeReceiptModal);
-  elReceiptDone?.addEventListener("click", closeReceiptModal);
+  function clearReceiptModalUI() {
+    if (elReceiptBody) elReceiptBody.innerHTML = "";
+
+    if (elMhPill) {
+      elMhPill.textContent = "";
+      elMhPill.style.background = "";
+      elMhPill.style.color = "";
+    }
+    if (elMhSummary) elMhSummary.textContent = "";
+    if (elMhJson) elMhJson.textContent = "";
+    if (elMhDetails) elMhDetails.open = false;
+
+    if (elQr) elQr.innerHTML = "";
+    if (elQrWrap) elQrWrap.style.display = "none";
+  }
+
+  function closeReceiptAndClear() {
+    clearReceiptModalUI();
+    closeReceiptModal();
+  }
+
+  elReceiptCloseX?.addEventListener("click", closeReceiptAndClear);
+  elReceiptCloseBtn?.addEventListener("click", closeReceiptAndClear);
+
+  function todayISOInElSalvador() {
+    // sv-SE => YYYY-MM-DD
+    return new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "America/El_Salvador",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+  }
+
+  // Official MH public verification URL for QR
+  function buildMhQrUrl(res) {
+    const mh = res?.mh || {};
+    const dte = res?.dte || res?.dte_json || null;
+
+    const ambiente = String(dte?.identificacion?.ambiente || JC_POS?.mh_ambiente || "00").trim() || "00";
+    const codGen = String(dte?.identificacion?.codigoGeneracion || mh?.codigoGeneracion || "").trim();
+
+    // If DTE isn't returned by your API, use "today" at moment of sale (SV timezone)
+    const fechaEmi = String(dte?.identificacion?.fecEmi || "").trim() || todayISOInElSalvador();
+
+    if (!codGen) return "";
+
+    const base = "https://admin.factura.gob.sv/consultaPublica";
+    return `${base}?ambiente=${encodeURIComponent(ambiente)}&codGen=${encodeURIComponent(codGen)}&fechaEmi=${encodeURIComponent(fechaEmi)}`;
+  }
+
+  function setMhUI(res) {
+    const mh = res?.mh || {};
+    if (!elMhBox) return;
+
+    const estado = String(mh?.estado || "").toUpperCase();
+    const codigo = String(mh?.codigoMsg || "");
+    const desc = String(mh?.descripcionMsg || mh?.error || "");
+
+    // pill
+    if (elMhPill) {
+      let bg = "#f0f0f1";
+      let color = "#1d2327";
+      if (estado === "PROCESADO") { bg = "#d4edda"; color = "#145a32"; }
+      if (estado === "RECHAZADO") { bg = "#f8d7da"; color = "#842029"; }
+      if (estado === "FAILED" || estado === "") { bg = "#fff3cd"; color = "#664d03"; }
+
+      elMhPill.style.background = bg;
+      elMhPill.style.color = color;
+      elMhPill.textContent = estado || (mh?.mh_status ? String(mh.mh_status) : "—");
+    }
+
+    // summary
+    if (elMhSummary) {
+      const parts = [];
+      if (codigo) parts.push(`Code: ${codigo}`);
+      if (desc) parts.push(desc);
+      elMhSummary.textContent = parts.length ? parts.join(" — ") : "—";
+    }
+
+    // QR
+    const qrUrl = buildMhQrUrl(res);
+    if (elQrWrap && elQr) {
+      elQr.innerHTML = "";
+
+      if (estado === "PROCESADO" && qrUrl) {
+        elQrWrap.style.display = "block";
+
+        if (window.QRCode) {
+          new window.QRCode(elQr, { text: qrUrl, width: 160, height: 160 });
+        } else {
+          // If the QR lib isn't loaded, show URL as fallback so you know it's working
+          elQr.innerHTML = `<div style="font-size:12px;color:#50575e;word-break:break-all;">${escapeHtml(qrUrl)}</div>`;
+        }
+      } else {
+        elQrWrap.style.display = "none";
+      }
+    }
+
+    // debug json
+    if (elMhJson) elMhJson.textContent = JSON.stringify(mh || {}, null, 2);
+
+    if (elMhDetails) elMhDetails.open = (estado === "RECHAZADO" || estado === "FAILED");
+  }
 
   function printReceipt(html) {
     const w = window.open("", "jc_receipt", "width=380,height=650");
@@ -250,6 +377,59 @@
     w.document.close();
   }
 
+  // Grab QR image from DOM (qrcodejs renders canvas/img)
+  function getQrDataUrl() {
+    if (!elQr) return "";
+
+    const img = elQr.querySelector("img");
+    if (img && img.src && img.src.startsWith("data:")) return img.src;
+
+    const canvas = elQr.querySelector("canvas");
+    if (canvas && typeof canvas.toDataURL === "function") {
+      try { return canvas.toDataURL("image/png"); } catch (_) { return ""; }
+    }
+    return "";
+  }
+
+  function injectQrIntoReceiptHtml(receiptHtml, qrDataUrl, qrUrlText) {
+    if (!qrDataUrl && !qrUrlText) return receiptHtml;
+
+    const qrBlock = qrDataUrl
+      ? `
+        <div style="margin-top:12px; display:flex; justify-content:center;">
+          <div style="text-align:center;">
+            <div style="font-size:11px; margin-bottom:6px;">QR MH</div>
+            <img src="${qrDataUrl}" style="width:160px;height:160px;" />
+          </div>
+        </div>
+      `
+      : `
+        <div style="margin-top:12px; font-size:11px; word-break:break-all;">
+          QR MH: ${escapeHtml(qrUrlText)}
+        </div>
+      `;
+
+    if (receiptHtml.includes("Gracias por su compra")) {
+      return receiptHtml.replace("Gracias por su compra", `${qrBlock}Gracias por su compra`);
+    }
+    return receiptHtml + qrBlock;
+  }
+
+  function printReceiptWithQr(receiptHtml, res) {
+    const qrUrlText = buildMhQrUrl(res);
+
+    const tryPrint = () => {
+      const qrDataUrl = getQrDataUrl();
+      const printable = injectQrIntoReceiptHtml(receiptHtml, qrDataUrl, qrUrlText);
+      printReceipt(printable);
+    };
+
+    // If QR library renders async, wait a tick
+    if (getQrDataUrl()) return tryPrint();
+    setTimeout(tryPrint, 60);
+  }
+
+  // ---------------- Receipt HTML ----------------
   function buildReceiptHtml(res, soldCart) {
     const dte = res?.dte || res?.dte_json || null;
 
@@ -279,33 +459,25 @@
           <div>NIT: ${escapeHtml(em.nit || "")} &nbsp; NRC: ${escapeHtml(em.nrc || "")}</div>
           <div>${dir}</div>
           <div>Tel: ${escapeHtml(em.telefono || "")}</div>
-
           <hr/>
-
           <div><strong>Control:</strong> ${escapeHtml(id.numeroControl || "")}</div>
           <div><strong>Generación:</strong> ${escapeHtml(id.codigoGeneracion || "")}</div>
           <div><strong>Fecha:</strong> ${escapeHtml(id.fecEmi || "")} ${escapeHtml(id.horEmi || "")}</div>
-
           <hr/>
-
           <div><strong>Cliente:</strong> ${escapeHtml(rc.nombre || "CONSUMIDOR FINAL")}</div>
-
           <hr/>
-
           <table>${rows}</table>
-
           <hr/>
-
           <div style="display:flex;justify-content:space-between;">
             <strong>Total</strong><strong>${money(totalPagar)}</strong>
           </div>
           <div style="margin-top:6px">${totalLetras}</div>
-
           <div style="margin-top:10px;text-align:center;">Gracias por su compra</div>
         </div>
       `;
     }
 
+    // fallback (no DTE returned)
     const rows = (soldCart || []).length
       ? soldCart.map((l) => {
           const qty = Number(l.qty || 1);
@@ -333,7 +505,7 @@
     `;
   }
 
-  // ---------------- UI ----------------
+  // ---------------- UI rendering ----------------
   function renderMenus() {
     if (!elMenus) return;
     elMenus.innerHTML = "";
@@ -381,7 +553,6 @@
       const bottom = document.createElement("div");
       bottom.className = "jc-bottom";
       bottom.innerHTML = `<span>${money(p.price)}</span> <button class="button button-small" type="button">🛒</button>`;
-
       bottom.querySelector("button")?.addEventListener("click", () => openModal(p));
 
       card.appendChild(img);
@@ -393,7 +564,6 @@
 
   function renderCart() {
     if (!elCart) return;
-
     elCart.innerHTML = "";
 
     if (!CART.length) {
@@ -506,7 +676,7 @@
     renderProducts(elSearch?.value || "");
   }
 
-  // ---------------- Modal ----------------
+  // ---------------- Product modal ----------------
   function getSelectedToppings() {
     const picks = [];
     elToppings?.querySelectorAll("input[type=checkbox]")?.forEach((cb) => {
@@ -534,9 +704,9 @@
     currentProduct = product;
     if (elModalTitle) elModalTitle.textContent = product.name;
 
+    // Syrups
     if (elFlavor) {
       elFlavor.innerHTML = "";
-
       const optDefault = document.createElement("option");
       optDefault.value = "";
       optDefault.dataset.price = "0";
@@ -552,6 +722,7 @@
       });
     }
 
+    // Sizes
     if (elSize) {
       elSize.innerHTML = "";
       const base = parseFloat(product.price || "0");
@@ -565,8 +736,8 @@
           opt.value = String(s.id);
           opt.dataset.price = String(finalPrice);
           opt.textContent = `${s.label} (${money(finalPrice)})`;
-
           if (s.is_default === 1) opt.selected = true;
+
           elSize.appendChild(opt);
         });
       } else {
@@ -578,6 +749,7 @@
       }
     }
 
+    // Toppings
     if (elToppings) {
       elToppings.innerHTML = "";
       TOPPINGS.forEach((t) => {
@@ -599,10 +771,43 @@
     currentProduct = null;
   }
 
+  elModalClose?.addEventListener("click", closeModal);
+  elSize?.addEventListener("change", updateItemTotal);
+  elFlavor?.addEventListener("change", updateItemTotal);
+  elToppings?.addEventListener("change", updateItemTotal);
+
+  elAddToCart?.addEventListener("click", () => {
+    if (!currentProduct) return;
+
+    const sizeOpt = elSize?.options?.[elSize.selectedIndex];
+    const sizePrice = parseFloat(sizeOpt?.dataset.price || currentProduct.price || "0");
+    const sizeLabel = sizeOpt?.textContent ? sizeOpt.textContent.split(" (")[0] : "Default";
+
+    const syrupOpt = elFlavor?.options?.[elFlavor.selectedIndex];
+    const syrupLabel = syrupOpt?.value ? syrupOpt.textContent.split(" (")[0] : "";
+    const syrupExtra = parseFloat(syrupOpt?.dataset.price || "0");
+
+    const tops = getSelectedToppings();
+    const topsTotal = tops.reduce((s, t) => s + (t.price || 0), 0);
+
+    const unit_price = Math.round((sizePrice + syrupExtra + topsTotal) * 100) / 100;
+
+    CART.push({
+      product_id: currentProduct.id,
+      variation_id: null,
+      name: currentProduct.name,
+      qty: 1,
+      unit_price,
+      meta: { size: sizeLabel, syrup: syrupLabel, toppings: tops },
+    });
+
+    closeModal();
+    renderCart();
+  });
+
   // ---------------- Customer picker ----------------
   function initCustomerIndex() {
     if (!elCustomerJson) return;
-
     try {
       CUSTOMER_INDEX = JSON.parse(elCustomerJson.textContent || "[]");
     } catch (err) {
@@ -615,7 +820,6 @@
     const first = String(customer?.first_name || "").trim();
     const last = String(customer?.last_name || "").trim();
     const full = `${first} ${last}`.trim();
-
     if (full) return full;
     if (String(customer?.company || "").trim()) return String(customer.company).trim();
     return `Customer #${customer?.id || ""}`;
@@ -623,40 +827,15 @@
 
   function buildCustomerMeta(customer) {
     const parts = [];
-
     if (customer?.company) parts.push(`Company: ${customer.company}`);
     if (customer?.nrc) parts.push(`NRC: ${customer.nrc}`);
     if (customer?.nit) parts.push(`NIT: ${customer.nit}`);
     if (customer?.phone) parts.push(`Phone: ${customer.phone}`);
-
     return parts.join(" • ");
-  }
-
-  function hasSelectedCustomer() {
-    return !!(elSaleCustomerId && String(elSaleCustomerId.value || "").trim() !== "");
-  }
-
-  function updateCustomerRequirementState() {
-    if (!elCustomerRequirement) return;
-
-    if (getDocType() !== "CREDITO_FISCAL") {
-      elCustomerRequirement.textContent = "Optional for Consumidor Final. Required for Crédito Fiscal.";
-      elCustomerRequirement.style.color = "#50575e";
-      return;
-    }
-
-    if (hasSelectedCustomer()) {
-      elCustomerRequirement.textContent = "Customer selected for Crédito Fiscal.";
-      elCustomerRequirement.style.color = "#008a20";
-    } else {
-      elCustomerRequirement.textContent = "Crédito Fiscal requires a selected customer before completing the sale.";
-      elCustomerRequirement.style.color = "#d63638";
-    }
   }
 
   function setCustomerError(message) {
     if (!elCustomerError) return;
-
     if (message) {
       elCustomerError.textContent = message;
       elCustomerError.style.display = "block";
@@ -687,51 +866,24 @@
   function selectCustomer(customer) {
     writeCustomerHiddenFields(customer);
     updateCustomerRequirementState();
-  
-    if (elResult) {
-      elResult.innerHTML = "";
-    }
-  
-    if (elCustomerSearch) {
-      elCustomerSearch.value = customerDisplayName(customer);
-    }
-  
-    // Hide the detailed selected box to keep the UI compact
-    if (elSelectedCustomerName) {
-      elSelectedCustomerName.textContent = customerDisplayName(customer);
-    }
-  
-    if (elSelectedCustomerMeta) {
-      elSelectedCustomerMeta.textContent = buildCustomerMeta(customer);
-    }
-  
-    if (elSelectedCustomer) {
-      elSelectedCustomer.style.display = "none";
-    }
-  
+    if (elResult) elResult.innerHTML = "";
+
+    if (elCustomerSearch) elCustomerSearch.value = customerDisplayName(customer);
     setCustomerError("");
     clearCustomerResults();
   }
 
   function clearSelectedCustomer() {
     writeCustomerHiddenFields(null);
-
-    if (elSelectedCustomerName) elSelectedCustomerName.textContent = "";
-    if (elSelectedCustomerMeta) elSelectedCustomerMeta.textContent = "";
-    if (elSelectedCustomer) elSelectedCustomer.style.display = "none";
     if (elCustomerSearch) elCustomerSearch.value = "";
-
     updateCustomerRequirementState();
-
     if (elResult) elResult.innerHTML = "";
-
     setCustomerError("");
     clearCustomerResults();
   }
 
   function customerMatches(customer, query) {
     const q = normalizeText(query);
-
     if (!q) return true;
 
     const haystack = [
@@ -787,11 +939,9 @@
   function runCustomerSearch() {
     if (!elCustomerSearch) return;
 
-    const query = elCustomerSearch.value || "";
-    const q = normalizeText(query);
-
     if (elResult) elResult.innerHTML = "";
 
+    const q = normalizeText(elCustomerSearch.value || "");
     setCustomerError("");
     clearCustomerResults();
 
@@ -808,7 +958,6 @@
     if (!elCustomerBox || !elCustomerJson) return;
 
     initCustomerIndex();
-
     elCustomerSearchBtn?.addEventListener("click", runCustomerSearch);
 
     elCustomerSearch?.addEventListener("keydown", (event) => {
@@ -820,21 +969,47 @@
 
     elClearCustomer?.addEventListener("click", () => {
       clearSelectedCustomer();
-      if (elCustomerSearch) elCustomerSearch.focus();
+      elCustomerSearch?.focus();
     });
 
     updateCustomerRequirementState();
   }
 
+  // ---------------- Reset sale ----------------
+  function resetSaleUI() {
+    if (elResult) elResult.innerHTML = "";
+
+    CART = [];
+    renderCart();
+
+    if (elCashReceived) elCashReceived.value = "0";
+    if (elChangeDue) elChangeDue.textContent = money(0);
+
+    if (elDiscountType) elDiscountType.value = "none";
+    if (elDiscountValue) elDiscountValue.value = "0";
+    if (elFeeLabel) elFeeLabel.value = "";
+    if (elFeeValue) elFeeValue.value = "0";
+
+    updateTotalsUI();
+  }
+
+  elReceiptNewSale?.addEventListener("click", () => {
+    resetSaleUI();
+    closeReceiptAndClear();
+  });
+
   // ---------------- Checkout ----------------
   async function checkout() {
     if (!CART.length) return;
 
+    if (getDocType() === "CREDITO_FISCAL" && !hasSelectedCustomer()) {
+      if (elResult) elResult.innerHTML = `<p class="jc-bad">Error: Select a customer for Crédito Fiscal.</p>`;
+      return;
+    }
+
     const soldCart = CART.map((x) => JSON.parse(JSON.stringify(x)));
 
-    if (elResult) {
-      elResult.innerHTML = "<p>Processing...</p>";
-    }
+    if (elResult) elResult.innerHTML = "<p>Processing...</p>";
 
     const payload = {
       cart: CART,
@@ -843,6 +1018,7 @@
       discount_value: parseFloat(elDiscountValue?.value || "0") || 0,
       fee_label: elFeeLabel?.value || "",
       fee_value: feeAmount(),
+      cash_received: parseNum(elCashReceived?.value || "0"),
 
       customer_id: parseInt(elSaleCustomerId?.value || "0", 10) || 0,
       customer_name: elSaleCustomerName?.value || "",
@@ -865,101 +1041,37 @@
     } catch (err) {
       console.error("Checkout error:", err);
       const msg = err?.data?.message || err?.data?.error || err?.message || "Request failed";
-      if (elResult) {
-        elResult.innerHTML = `<p class="jc-bad">Error: ${escapeHtml(msg)}</p>`;
-      }
+      if (elResult) elResult.innerHTML = `<p class="jc-bad">Error: ${escapeHtml(msg)}</p>`;
       return;
     }
 
     if (!res?.success) {
-      if (elResult) {
-        elResult.innerHTML = `<p class="jc-bad">Error: ${escapeHtml(res?.error || "Unknown")}</p>`;
-      }
+      if (elResult) elResult.innerHTML = `<p class="jc-bad">Error: ${escapeHtml(res?.error || "Unknown")}</p>`;
       return;
     }
 
     const receiptHtml = buildReceiptHtml(res, soldCart);
-    const mh = res.mh || {};
 
-    CART = [];
-    renderCart();
-    if (elCashReceived) elCashReceived.value = "0";
-    if (elChangeDue) elChangeDue.textContent = money(0);
-    if (elDiscountType) elDiscountType.value = "none";
-    if (elDiscountValue) elDiscountValue.value = "0";
-    if (elFeeLabel) elFeeLabel.value = "";
-    if (elFeeValue) elFeeValue.value = "0";
+    // Open modal immediately, then render MH/QR inside it
+    openReceiptModal(receiptHtml);
+    setMhUI(res);
 
-    updateTotalsUI();
-
-    if (elResult) {
-      elResult.innerHTML = `
-        <div class="jc-good">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-            <strong>Sale OK</strong>
-            <button type="button" class="button" id="jc-open-receipt">Receipt</button>
-          </div>
-          <div style="margin-top:6px;">Ticket: ${escapeHtml(String(res.ticket_number ?? ""))}</div>
-          <div>Invoice: ${escapeHtml(String(res.invoice_id ?? ""))}</div>
-          <details style="margin-top:8px">
-            <summary>MH response</summary>
-            <pre style="white-space:pre-wrap">${escapeHtml(JSON.stringify(mh, null, 2))}</pre>
-          </details>
-        </div>
-      `;
-    }
-
-    document.getElementById("jc-open-receipt")?.addEventListener("click", () => {
-      openReceiptModal(receiptHtml);
-    });
-
+    // Print: inject QR into printed receipt (wait a tick if needed)
     if (elReceiptPrint) {
-      elReceiptPrint.onclick = () => printReceipt(receiptHtml);
+      elReceiptPrint.onclick = () => printReceiptWithQr(receiptHtml, res);
     }
+
+    // Modal is now the UX; don’t keep “Sale OK” box around
+    if (elResult) elResult.innerHTML = "";
+
+    // Reset cart/totals for next sale (customer stays selected)
+    resetSaleUI();
   }
 
   // ---------------- Events ----------------
-  document.getElementById("jc-modal-close")?.addEventListener("click", closeModal);
-
-  document.getElementById("jc-add-to-cart")?.addEventListener("click", () => {
-    if (!currentProduct) return;
-
-    const sizeOpt = elSize?.options?.[elSize.selectedIndex];
-    const sizePrice = parseFloat(sizeOpt?.dataset.price || currentProduct.price || "0");
-    const sizeLabel = sizeOpt?.textContent ? sizeOpt.textContent.split(" (")[0] : "Default";
-
-    const syrupOpt = elFlavor?.options?.[elFlavor.selectedIndex];
-    const syrupLabel = syrupOpt?.value ? syrupOpt.textContent.split(" (")[0] : "";
-    const syrupExtra = parseFloat(syrupOpt?.dataset.price || "0");
-
-    const tops = getSelectedToppings();
-    const topsTotal = tops.reduce((s, t) => s + (t.price || 0), 0);
-
-    const unit_price = Math.round((sizePrice + syrupExtra + topsTotal) * 100) / 100;
-
-    CART.push({
-      product_id: currentProduct.id,
-      variation_id: null,
-      name: currentProduct.name,
-      qty: 1,
-      unit_price,
-      meta: {
-        size: sizeLabel,
-        syrup: syrupLabel,
-        toppings: tops,
-      },
-    });
-
-    closeModal();
-    renderCart();
-  });
-
-  elSize?.addEventListener("change", updateItemTotal);
-  elFlavor?.addEventListener("change", updateItemTotal);
-  elToppings?.addEventListener("change", updateItemTotal);
-
   elRefresh?.addEventListener("click", loadBootstrap);
   elCheckout?.addEventListener("click", checkout);
+
   elSearch?.addEventListener("input", (e) => renderProducts(e.target.value || ""));
 
   elDiscountType?.addEventListener("change", renderCart);

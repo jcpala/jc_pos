@@ -476,3 +476,5 @@
     width: 100%;
   }
 }
+#jc-mh-details { display:none; }
+#jc-mh-json { display:none; }
