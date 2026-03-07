@@ -23,13 +23,17 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-register-session-servic
 require_once plugin_dir_path(__FILE__) . 'includes/class-customer-service.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-jc-customers-admin.php';
 
+// Add the PDF service require (adjust if your path differs)
+require_once plugin_dir_path(__FILE__) . 'includes/Services/class-jc-dte-pdf-service.php';
+
+// Register PDF route
+JC_DTE_Pdf_Service::register_routes();
 
 JC_Customers_Admin::init();
 
 add_action('init', ['JC_Correlativo_Admin', 'init']);
 add_action('init', ['JC_WC_Checkout_Fields', 'init']);
 add_action('init', ['JC_WC_Fiscal_Integration', 'init']);
-
 JC_WC_Register_Fields::init();
 
 add_action('admin_init', function () {
@@ -37,6 +41,7 @@ add_action('admin_init', function () {
         add_option('jc_low_ticket_threshold', 100);
     }
 });
+
 require_once plugin_dir_path(__FILE__) . 'includes/class-correlativo-notices.php';
 add_action('init', ['JC_Correlativo_Notices', 'init']);
 

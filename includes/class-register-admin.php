@@ -25,9 +25,10 @@ class JC_Register_Admin {
             return;
         }
     
-        $css_path   = plugin_dir_path(__FILE__) . '../assets/register.css';
-        $js_path    = plugin_dir_path(__FILE__) . '../assets/register.js';
-        $qr_js_path = plugin_dir_path(__FILE__) . '../assets/qrcode.min.js';
+        $css_path = plugin_dir_path(__FILE__) . '../assets/register.css';
+        $js_path  = plugin_dir_path(__FILE__) . '../assets/register.js';
+        $qr_path  = plugin_dir_path(__FILE__) . '../assets/qrcode.min.js';
+        
     
         wp_enqueue_style(
             'jc-register',
@@ -36,7 +37,6 @@ class JC_Register_Admin {
             file_exists($css_path) ? (string) filemtime($css_path) : '1.0.0'
         );
     
-        // Hide WP notices/footer only on register page
         wp_add_inline_style('jc-register', '
             #wpbody-content > .notice,
             #wpbody-content > .update-nag,
@@ -46,21 +46,19 @@ class JC_Register_Admin {
             #wpfooter { display:none !important; }
         ');
     
-        // ✅ QR library (must load before register.js)
-        if (file_exists($qr_js_path)) {
-            wp_enqueue_script(
-                'jc-qrcode',
-                plugins_url('../assets/qrcode.min.js', __FILE__),
-                [],
-                (string) filemtime($qr_js_path),
-                true
-            );
-        }
+        // ✅ QR lib
+        wp_enqueue_script(
+            'jc-qrcode',
+            plugins_url('../assets/qrcode.min.js', __FILE__),
+            [],
+            file_exists($qr_path) ? (string) filemtime($qr_path) : '1.0.0',
+            true
+        );
     
         wp_enqueue_script(
             'jc-register',
             plugins_url('../assets/register.js', __FILE__),
-            file_exists($qr_js_path) ? ['wp-api-fetch', 'jc-qrcode'] : ['wp-api-fetch'],
+            ['wp-api-fetch', 'jc-qrcode'], // ✅ depends on qr lib
             file_exists($js_path) ? (string) filemtime($js_path) : '1.0.0',
             true
         );
@@ -70,6 +68,7 @@ class JC_Register_Admin {
             'nonce'   => wp_create_nonce('wp_rest'),
         ]);
     }
+
     public static function page() {
         if (!current_user_can('manage_woocommerce')) {
             wp_die('No permission.');

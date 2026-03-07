@@ -1,88 +1,87 @@
-/* assets/register.js */
+/* assets/register.js
+ * Teavo / JC POS Register (clean single-file version)
+ * Requires:
+ *  - wp-api-fetch (WordPress)
+ *  - QRCode lib loaded before this file (qrcode.min.js -> global QRCode)
+ */
 (function () {
-  "use strict";
-
   const apiFetch = window.wp?.apiFetch;
   if (!apiFetch || !window.JC_POS?.nonce) return;
 
   apiFetch.use(apiFetch.createNonceMiddleware(JC_POS.nonce));
 
-  // ---------------- DOM helpers ----------------
-  const byId = (id) => document.getElementById(id);
+  // ---------------- DOM ----------------
+  const elMenus = document.getElementById("jc-menus");
+  const elProducts = document.getElementById("jc-products");
+  const elCart = document.getElementById("jc-cart");
+  const elSubtotal = document.getElementById("jc-subtotal");
+  const elTotal = document.getElementById("jc-total");
+  const elResult = document.getElementById("jc-result");
 
-  // Main UI
-  const elMenus = byId("jc-menus");
-  const elProducts = byId("jc-products");
-  const elCart = byId("jc-cart");
-  const elSubtotal = byId("jc-subtotal");
-  const elTotal = byId("jc-total");
-  const elResult = byId("jc-result");
+  const elDiscountType = document.getElementById("jc-discount-type");
+  const elDiscountValue = document.getElementById("jc-discount-value");
+  const elFeeLabel = document.getElementById("jc-fee-label");
+  const elFeeValue = document.getElementById("jc-fee-value");
 
-  const elSearch = byId("jc-search");
-  const elRefresh = byId("jc-refresh");
-  const elCheckout = byId("jc-checkout");
+  const elSearch = document.getElementById("jc-search");
+  const elRefresh = document.getElementById("jc-refresh");
+  const elCheckout = document.getElementById("jc-checkout");
 
-  const elDiscountType = byId("jc-discount-type");
-  const elDiscountValue = byId("jc-discount-value");
-  const elFeeLabel = byId("jc-fee-label");
-  const elFeeValue = byId("jc-fee-value");
-
-  // Cash/change (optional – only if your page has these)
-  const elCashReceived = byId("jc-cash-received");
-  const elCashExact = byId("jc-cash-exact");
-  const elChangeDue = byId("jc-change-due");
+  // Optional cash/change (only if present in HTML)
+  const elCashReceived = document.getElementById("jc-cash-received");
+  const elCashExact = document.getElementById("jc-cash-exact");
+  const elChangeDue = document.getElementById("jc-change-due");
 
   // Product modal
-  const elModal = byId("jc-modal");
-  const elModalTitle = byId("jc-modal-title");
-  const elSize = byId("jc-opt-size");
-  const elFlavor = byId("jc-opt-flavor");
-  const elToppings = byId("jc-opt-toppings");
-  const elItemTotal = byId("jc-item-total");
-  const elModalClose = byId("jc-modal-close");
-  const elAddToCart = byId("jc-add-to-cart");
+  const elModal = document.getElementById("jc-modal");
+  const elModalTitle = document.getElementById("jc-modal-title");
+  const elSize = document.getElementById("jc-opt-size");
+  const elFlavor = document.getElementById("jc-opt-flavor");
+  const elToppings = document.getElementById("jc-opt-toppings");
+  const elItemTotal = document.getElementById("jc-item-total");
+  const elModalClose = document.getElementById("jc-modal-close");
+  const elAddToCart = document.getElementById("jc-add-to-cart");
 
   // Receipt modal
-  const elReceiptModal = byId("jc-receipt-modal");
-  const elReceiptBody = byId("jc-receipt-body");
-  const elReceiptCloseX = byId("jc-receipt-close");
-  const elReceiptPrint = byId("jc-receipt-print");
-  const elReceiptNewSale = byId("jc-receipt-new-sale");
-  const elReceiptCloseBtn = byId("jc-receipt-close-btn");
+  const elReceiptModal = document.getElementById("jc-receipt-modal");
+  const elReceiptBody = document.getElementById("jc-receipt-body");
+  const elReceiptCloseX = document.getElementById("jc-receipt-close");
+  const elReceiptCloseBtn = document.getElementById("jc-receipt-close-btn");
+  const elReceiptPrint = document.getElementById("jc-receipt-print");
+  const elReceiptNewSale = document.getElementById("jc-receipt-new-sale");
 
-  // MH box inside receipt modal
-  const elMhBox = byId("jc-mh-box");
-  const elMhPill = byId("jc-mh-pill");
-  const elMhSummary = byId("jc-mh-summary");
-  const elMhDetails = byId("jc-mh-details");
-  const elMhJson = byId("jc-mh-json");
-  const elQrWrap = byId("jc-mh-qr-wrap");
-  const elQr = byId("jc-mh-qr");
+  // MH UI inside receipt modal
+  const elMhBox = document.getElementById("jc-mh-box");
+  const elMhPill = document.getElementById("jc-mh-pill");
+  const elMhSummary = document.getElementById("jc-mh-summary");
+  const elMhDetails = document.getElementById("jc-mh-details");
+  const elMhJson = document.getElementById("jc-mh-json");
+  const elQrWrap = document.getElementById("jc-mh-qr-wrap");
+  const elQr = document.getElementById("jc-mh-qr");
 
   // Document type
   const elDocRadios = document.querySelectorAll('input[name="jc_doc_type"]');
-  const elDocBadge = byId("jc-doc-badge");
+  const elDocBadge = document.getElementById("jc-doc-badge");
 
   // Customer picker
-  const elCustomerBox = byId("jc-register-customer-box");
-  const elCustomerJson = byId("jc-pos-customer-index");
-  const elCustomerSearch = byId("jc-customer-search");
-  const elCustomerSearchBtn = byId("jc-customer-search-btn");
-  const elCustomerResults = byId("jc-customer-results");
-  const elCustomerError = byId("jc-customer-error");
-  const elCustomerRequirement = byId("jc-customer-requirement-text");
-  const elClearCustomer = byId("jc-clear-customer");
+  const elCustomerBox = document.getElementById("jc-register-customer-box");
+  const elCustomerJson = document.getElementById("jc-pos-customer-index");
+  const elCustomerSearch = document.getElementById("jc-customer-search");
+  const elCustomerSearchBtn = document.getElementById("jc-customer-search-btn");
+  const elCustomerResults = document.getElementById("jc-customer-results");
+  const elCustomerError = document.getElementById("jc-customer-error");
+  const elCustomerRequirement = document.getElementById("jc-customer-requirement-text");
+  const elClearCustomer = document.getElementById("jc-clear-customer");
 
-  // Hidden customer fields
-  const elSaleCustomerId = byId("jc-sale-customer-id");
-  const elSaleCustomerName = byId("jc-sale-customer-name");
-  const elSaleCustomerCompany = byId("jc-sale-customer-company");
-  const elSaleCustomerNrc = byId("jc-sale-customer-nrc");
-  const elSaleCustomerNit = byId("jc-sale-customer-nit");
-  const elSaleCustomerAddress = byId("jc-sale-customer-address");
-  const elSaleCustomerCity = byId("jc-sale-customer-city");
-  const elSaleCustomerPhone = byId("jc-sale-customer-phone");
-  const elSaleCustomerEmail = byId("jc-sale-customer-email");
+  const elSaleCustomerId = document.getElementById("jc-sale-customer-id");
+  const elSaleCustomerName = document.getElementById("jc-sale-customer-name");
+  const elSaleCustomerCompany = document.getElementById("jc-sale-customer-company");
+  const elSaleCustomerNrc = document.getElementById("jc-sale-customer-nrc");
+  const elSaleCustomerNit = document.getElementById("jc-sale-customer-nit");
+  const elSaleCustomerAddress = document.getElementById("jc-sale-customer-address");
+  const elSaleCustomerCity = document.getElementById("jc-sale-customer-city");
+  const elSaleCustomerPhone = document.getElementById("jc-sale-customer-phone");
+  const elSaleCustomerEmail = document.getElementById("jc-sale-customer-email");
 
   // ---------------- State ----------------
   let MENUS = [];
@@ -94,6 +93,11 @@
   let currentMenuId = null;
   let currentProduct = null;
   let CUSTOMER_INDEX = [];
+
+  // receipt session state
+  let LAST_RECEIPT_HTML = "";
+  let LAST_QR_URL = "";
+  let LAST_RESULT = null;
 
   // ---------------- Utils ----------------
   function money(n) {
@@ -123,7 +127,6 @@
     return apiFetch({ path: "/jc-pos/v1" + path });
   }
 
-  // ---------------- Totals + change ----------------
   function feeAmount() {
     return Math.max(0, parseFloat(elFeeValue?.value || "0") || 0);
   }
@@ -143,7 +146,15 @@
   function cartTotal() {
     const sub = cartSubtotal();
     const afterDiscount = applyDiscount(sub);
-    return Math.round((afterDiscount + feeAmount()) * 100) / 100;
+    return afterDiscount + feeAmount();
+  }
+
+  function updateTotalsUI() {
+    const sub = cartSubtotal();
+    const tot = cartTotal();
+    if (elSubtotal) elSubtotal.textContent = money(sub);
+    if (elTotal) elTotal.textContent = money(tot);
+    updateChangeUI();
   }
 
   function updateChangeUI() {
@@ -157,14 +168,6 @@
     elChangeDue.style.color = cash > 0 && cash < total ? "#d63638" : "";
   }
 
-  function updateTotalsUI() {
-    const sub = cartSubtotal();
-    const tot = cartTotal();
-    if (elSubtotal) elSubtotal.textContent = money(sub);
-    if (elTotal) elTotal.textContent = money(tot);
-    updateChangeUI();
-  }
-
   // ---------------- Document type ----------------
   function getDocType() {
     const checked = document.querySelector('input[name="jc_doc_type"]:checked');
@@ -172,43 +175,11 @@
     return v === "CREDITO_FISCAL" ? "CREDITO_FISCAL" : "CONSUMIDOR_FINAL";
   }
 
-  function hasSelectedCustomer() {
-    return !!(elSaleCustomerId && String(elSaleCustomerId.value || "").trim() !== "");
-  }
-
-  function updateCustomerRequirementState() {
-    if (!elCustomerRequirement) return;
-
-    if (getDocType() !== "CREDITO_FISCAL") {
-      elCustomerRequirement.textContent = "Optional for Consumidor Final. Required for Crédito Fiscal.";
-      elCustomerRequirement.style.color = "#50575e";
-      return;
-    }
-
-    if (hasSelectedCustomer()) {
-      elCustomerRequirement.textContent = "Customer selected for Crédito Fiscal.";
-      elCustomerRequirement.style.color = "#008a20";
-    } else {
-      elCustomerRequirement.textContent = "Crédito Fiscal requires a selected customer before completing the sale.";
-      elCustomerRequirement.style.color = "#d63638";
-    }
-  }
-
   function updateDocUI() {
     const dt = getDocType();
     if (elDocBadge) elDocBadge.textContent = dt === "CREDITO_FISCAL" ? "Requiere datos fiscales" : "Venta rápida";
     updateCustomerRequirementState();
   }
-
-  elDocRadios?.forEach((r) => r.addEventListener("change", updateDocUI));
-
-  // Cash events (optional)
-  elCashReceived?.addEventListener("input", updateChangeUI);
-  elCashExact?.addEventListener("click", () => {
-    if (!elCashReceived) return;
-    elCashReceived.value = String(cartTotal());
-    updateChangeUI();
-  });
 
   // ---------------- Addons helpers ----------------
   function normalizeAddons(addons) {
@@ -228,10 +199,13 @@
 
   function pickByType(allAddons, typeName) {
     const want = String(typeName).toUpperCase();
-    return allAddons.filter((a) => String(a.addon_type || a.type || a.group || "").toUpperCase() === want);
+    return allAddons.filter((a) => {
+      const t = String(a.addon_type || a.type || a.group || "").toUpperCase();
+      return t === want;
+    });
   }
 
-  // ---------------- Receipt modal + MH UI + QR ----------------
+  // ---------------- Receipt modal ----------------
   function openReceiptModal(html) {
     if (!elReceiptModal || !elReceiptBody) return;
     elReceiptBody.innerHTML = html;
@@ -246,6 +220,10 @@
   }
 
   function clearReceiptModalUI() {
+    LAST_RECEIPT_HTML = "";
+    LAST_QR_URL = "";
+    LAST_RESULT = null;
+
     if (elReceiptBody) elReceiptBody.innerHTML = "";
 
     if (elMhPill) {
@@ -266,90 +244,7 @@
     closeReceiptModal();
   }
 
-  elReceiptCloseX?.addEventListener("click", closeReceiptAndClear);
-  elReceiptCloseBtn?.addEventListener("click", closeReceiptAndClear);
-
-  function todayISOInElSalvador() {
-    // sv-SE => YYYY-MM-DD
-    return new Intl.DateTimeFormat("sv-SE", {
-      timeZone: "America/El_Salvador",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(new Date());
-  }
-
-  // Official MH public verification URL for QR
-  function buildMhQrUrl(res) {
-    const mh = res?.mh || {};
-    const dte = res?.dte || res?.dte_json || null;
-
-    const ambiente = String(dte?.identificacion?.ambiente || JC_POS?.mh_ambiente || "00").trim() || "00";
-    const codGen = String(dte?.identificacion?.codigoGeneracion || mh?.codigoGeneracion || "").trim();
-
-    // If DTE isn't returned by your API, use "today" at moment of sale (SV timezone)
-    const fechaEmi = String(dte?.identificacion?.fecEmi || "").trim() || todayISOInElSalvador();
-
-    if (!codGen) return "";
-
-    const base = "https://admin.factura.gob.sv/consultaPublica";
-    return `${base}?ambiente=${encodeURIComponent(ambiente)}&codGen=${encodeURIComponent(codGen)}&fechaEmi=${encodeURIComponent(fechaEmi)}`;
-  }
-
-  function setMhUI(res) {
-    const mh = res?.mh || {};
-    if (!elMhBox) return;
-
-    const estado = String(mh?.estado || "").toUpperCase();
-    const codigo = String(mh?.codigoMsg || "");
-    const desc = String(mh?.descripcionMsg || mh?.error || "");
-
-    // pill
-    if (elMhPill) {
-      let bg = "#f0f0f1";
-      let color = "#1d2327";
-      if (estado === "PROCESADO") { bg = "#d4edda"; color = "#145a32"; }
-      if (estado === "RECHAZADO") { bg = "#f8d7da"; color = "#842029"; }
-      if (estado === "FAILED" || estado === "") { bg = "#fff3cd"; color = "#664d03"; }
-
-      elMhPill.style.background = bg;
-      elMhPill.style.color = color;
-      elMhPill.textContent = estado || (mh?.mh_status ? String(mh.mh_status) : "—");
-    }
-
-    // summary
-    if (elMhSummary) {
-      const parts = [];
-      if (codigo) parts.push(`Code: ${codigo}`);
-      if (desc) parts.push(desc);
-      elMhSummary.textContent = parts.length ? parts.join(" — ") : "—";
-    }
-
-    // QR
-    const qrUrl = buildMhQrUrl(res);
-    if (elQrWrap && elQr) {
-      elQr.innerHTML = "";
-
-      if (estado === "PROCESADO" && qrUrl) {
-        elQrWrap.style.display = "block";
-
-        if (window.QRCode) {
-          new window.QRCode(elQr, { text: qrUrl, width: 160, height: 160 });
-        } else {
-          // If the QR lib isn't loaded, show URL as fallback so you know it's working
-          elQr.innerHTML = `<div style="font-size:12px;color:#50575e;word-break:break-all;">${escapeHtml(qrUrl)}</div>`;
-        }
-      } else {
-        elQrWrap.style.display = "none";
-      }
-    }
-
-    // debug json
-    if (elMhJson) elMhJson.textContent = JSON.stringify(mh || {}, null, 2);
-
-    if (elMhDetails) elMhDetails.open = (estado === "RECHAZADO" || estado === "FAILED");
-  }
-
+  // Print window
   function printReceipt(html) {
     const w = window.open("", "jc_receipt", "width=380,height=650");
     if (!w) return;
@@ -377,22 +272,104 @@
     w.document.close();
   }
 
-  // Grab QR image from DOM (qrcodejs renders canvas/img)
-  function getQrDataUrl() {
-    if (!elQr) return "";
+  // ---- QR URL building ----
+  function parseMhFhProcesamientoToYmd(fh) {
+    const s = String(fh || "").trim(); // "06/03/2026 13:12:42"
+    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (!m) return "";
+    return `${m[3]}-${m[2]}-${m[1]}`;
+  }
 
-    const img = elQr.querySelector("img");
-    if (img && img.src && img.src.startsWith("data:")) return img.src;
+  function ymdToday() {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
 
-    const canvas = elQr.querySelector("canvas");
-    if (canvas && typeof canvas.toDataURL === "function") {
-      try { return canvas.toDataURL("image/png"); } catch (_) { return ""; }
+  // Official:
+  // https://admin.factura.gob.sv/consultaPublica?ambiente={00|01}&codGen={uuid}&fechaEmi={YYYY-MM-DD}
+  function buildMhQrUrl(res) {
+    const mh = res?.mh || {};
+    const dte = res?.dte || res?.dte_json || null;
+
+    const ambiente = String(dte?.identificacion?.ambiente || mh?.ambiente || "00").trim() || "00";
+    const codGen = String(dte?.identificacion?.codigoGeneracion || mh?.codigoGeneracion || "").trim();
+
+    const fechaEmi =
+      String(dte?.identificacion?.fecEmi || "").trim() ||
+      parseMhFhProcesamientoToYmd(mh?.fhProcesamiento) ||
+      String(mh?.fechaEmi || "").trim() ||
+      ymdToday();
+
+    if (!codGen || !fechaEmi) return "";
+
+    const base = "https://admin.factura.gob.sv/consultaPublica";
+    return `${base}?ambiente=${encodeURIComponent(ambiente)}&codGen=${encodeURIComponent(codGen)}&fechaEmi=${encodeURIComponent(fechaEmi)}`;
+  }
+
+  function renderQr(el, text) {
+    if (!el) return;
+    el.innerHTML = "";
+    if (!text) return;
+
+    const QR = typeof window.QRCode === "function" ? window.QRCode : typeof QRCode === "function" ? QRCode : null;
+    if (QR) {
+      // eslint-disable-next-line no-new
+      new QR(el, { text, width: 160, height: 160 });
+      return;
+    }
+
+    // fallback: show the URL
+    el.innerHTML = `<div style="font-size:12px;color:#50575e;word-break:break-all;">${escapeHtml(text)}</div>`;
+  }
+
+  function getQrDataUrlFromEl(el) {
+    if (!el) return "";
+    const img = el.querySelector("img");
+    if (img?.src?.startsWith("data:")) return img.src;
+
+    const canvas = el.querySelector("canvas");
+    if (canvas?.toDataURL) {
+      try {
+        return canvas.toDataURL("image/png");
+      } catch (_) {}
     }
     return "";
   }
 
-  function injectQrIntoReceiptHtml(receiptHtml, qrDataUrl, qrUrlText) {
-    if (!qrDataUrl && !qrUrlText) return receiptHtml;
+  function generateQrDataUrlFromUrl(qrUrl) {
+    return new Promise((resolve) => {
+      if (!qrUrl) return resolve("");
+
+      const QR = typeof window.QRCode === "function" ? window.QRCode : typeof QRCode === "function" ? QRCode : null;
+      if (!QR) return resolve("");
+
+      const tmp = document.createElement("div");
+      tmp.style.position = "fixed";
+      tmp.style.left = "-9999px";
+      tmp.style.top = "-9999px";
+      document.body.appendChild(tmp);
+
+      try {
+        // eslint-disable-next-line no-new
+        new QR(tmp, { text: qrUrl, width: 160, height: 160 });
+      } catch (e) {
+        document.body.removeChild(tmp);
+        return resolve("");
+      }
+
+      setTimeout(() => {
+        const data = getQrDataUrlFromEl(tmp);
+        document.body.removeChild(tmp);
+        resolve(data || "");
+      }, 30);
+    });
+  }
+
+  function injectQrIntoReceiptHtml(receiptHtml, qrDataUrl, qrUrl) {
+    if (!qrDataUrl && !qrUrl) return receiptHtml;
 
     const qrBlock = qrDataUrl
       ? `
@@ -405,7 +382,7 @@
       `
       : `
         <div style="margin-top:12px; font-size:11px; word-break:break-all;">
-          QR MH: ${escapeHtml(qrUrlText)}
+          <strong>QR:</strong> ${escapeHtml(qrUrl)}
         </div>
       `;
 
@@ -415,18 +392,71 @@
     return receiptHtml + qrBlock;
   }
 
-  function printReceiptWithQr(receiptHtml, res) {
-    const qrUrlText = buildMhQrUrl(res);
+  // Render MH UI inside receipt modal
+  function setMhUI(res) {
+    const mh = res?.mh || {};
+    if (!elMhBox) return;
 
-    const tryPrint = () => {
-      const qrDataUrl = getQrDataUrl();
-      const printable = injectQrIntoReceiptHtml(receiptHtml, qrDataUrl, qrUrlText);
-      printReceipt(printable);
-    };
+    const estado = String(mh?.estado || mh?.mh_status || "").toUpperCase();
+    const codigo = String(mh?.codigoMsg || "");
+    const desc = String(mh?.descripcionMsg || mh?.error || "");
 
-    // If QR library renders async, wait a tick
-    if (getQrDataUrl()) return tryPrint();
-    setTimeout(tryPrint, 60);
+    // pill
+    if (elMhPill) {
+      let bg = "#f0f0f1",
+        color = "#1d2327";
+      if (estado === "PROCESADO") {
+        bg = "#d4edda";
+        color = "#145a32";
+      }
+      if (estado === "RECHAZADO") {
+        bg = "#f8d7da";
+        color = "#842029";
+      }
+      if (estado === "FAILED" || !estado) {
+        bg = "#fff3cd";
+        color = "#664d03";
+      }
+      elMhPill.style.background = bg;
+      elMhPill.style.color = color;
+      elMhPill.textContent = estado || "—";
+    }
+
+    // summary
+    if (elMhSummary) {
+      const parts = [];
+      if (codigo) parts.push(`Code: ${codigo}`);
+      if (desc) parts.push(desc);
+      elMhSummary.textContent = parts.length ? parts.join(" — ") : "—";
+    }
+
+    // QR (only show when processed)
+    const qrUrl = buildMhQrUrl(res);
+    LAST_QR_URL = qrUrl;
+
+    if (elQrWrap && elQr) {
+      if (estado === "PROCESADO" && qrUrl) {
+        elQrWrap.style.display = "block";
+        renderQr(elQr, qrUrl);
+      } else {
+        elQrWrap.style.display = "none";
+        elQr.innerHTML = "";
+      }
+    }
+
+    // debug json
+    if (elMhJson) elMhJson.textContent = JSON.stringify(mh || {}, null, 2);
+    if (elMhDetails) elMhDetails.open = estado === "RECHAZADO" || estado === "FAILED";
+  }
+
+  async function printReceiptWithQr() {
+    const receiptHtml = LAST_RECEIPT_HTML;
+    const qrUrl = LAST_QR_URL;
+    if (!receiptHtml) return;
+
+    const qrDataUrl = await generateQrDataUrlFromUrl(qrUrl);
+    const printable = injectQrIntoReceiptHtml(receiptHtml, qrDataUrl, qrUrl);
+    printReceipt(printable);
   }
 
   // ---------------- Receipt HTML ----------------
@@ -441,12 +471,14 @@
 
       const lines = Array.isArray(dte.cuerpoDocumento) ? dte.cuerpoDocumento : [];
       const rows = lines.length
-        ? lines.map((l) => {
-            const qty = l.cantidad ?? 1;
-            const desc = escapeHtml(l.descripcion ?? "");
-            const price = Number(l.precioUni ?? 0);
-            return `<tr><td>${qty}x ${desc}</td><td style="text-align:right">${money(price)}</td></tr>`;
-          }).join("")
+        ? lines
+            .map((l) => {
+              const qty = l.cantidad ?? 1;
+              const desc = escapeHtml(l.descripcion ?? "");
+              const price = Number(l.precioUni ?? 0);
+              return `<tr><td>${qty}x ${desc}</td><td style="text-align:right">${money(price)}</td></tr>`;
+            })
+            .join("")
         : `<tr><td colspan="2"><em>No items</em></td></tr>`;
 
       const totalPagar = Number(dte.resumen?.totalPagar ?? 0);
@@ -477,19 +509,19 @@
       `;
     }
 
-    // fallback (no DTE returned)
+    // fallback
     const rows = (soldCart || []).length
-      ? soldCart.map((l) => {
-          const qty = Number(l.qty || 1);
-          const name = escapeHtml(l.name || "");
-          const lineTotal = Number(l.unit_price || 0) * qty;
-          return `<tr><td>${qty}x ${name}</td><td style="text-align:right">${money(lineTotal)}</td></tr>`;
-        }).join("")
+      ? soldCart
+          .map((l) => {
+            const qty = Number(l.qty || 1);
+            const name = escapeHtml(l.name || "");
+            const lineTotal = Number(l.unit_price || 0) * qty;
+            return `<tr><td>${qty}x ${name}</td><td style="text-align:right">${money(lineTotal)}</td></tr>`;
+          })
+          .join("")
       : `<tr><td colspan="2"><em>No items</em></td></tr>`;
 
-    const sub = soldCart.reduce((s, l) => s + Number(l.unit_price || 0) * Number(l.qty || 1), 0);
-    const afterDiscount = applyDiscount(sub);
-    const tot = afterDiscount + feeAmount();
+    const tot = cartTotal();
 
     return `
       <div>
@@ -505,7 +537,7 @@
     `;
   }
 
-  // ---------------- UI rendering ----------------
+  // ---------------- UI ----------------
   function renderMenus() {
     if (!elMenus) return;
     elMenus.innerHTML = "";
@@ -553,7 +585,8 @@
       const bottom = document.createElement("div");
       bottom.className = "jc-bottom";
       bottom.innerHTML = `<span>${money(p.price)}</span> <button class="button button-small" type="button">🛒</button>`;
-      bottom.querySelector("button")?.addEventListener("click", () => openModal(p));
+
+      bottom.querySelector("button")?.addEventListener("click", () => openProductModal(p));
 
       card.appendChild(img);
       card.appendChild(name);
@@ -564,6 +597,7 @@
 
   function renderCart() {
     if (!elCart) return;
+
     elCart.innerHTML = "";
 
     if (!CART.length) {
@@ -633,16 +667,8 @@
     }));
 
     const allAddons = normalizeAddons(boot.addons);
-    TOPPINGS = pickByType(allAddons, "TOPPING").map((a) => ({
-      id: String(a.id),
-      name: a.name,
-      price: parseFloat(a.price || "0"),
-    }));
-    SYRUPS = pickByType(allAddons, "SYRUP").map((a) => ({
-      id: String(a.id),
-      name: a.name,
-      price: parseFloat(a.price || "0"),
-    }));
+    TOPPINGS = pickByType(allAddons, "TOPPING").map((a) => ({ id: String(a.id), name: a.name, price: parseFloat(a.price || "0") }));
+    SYRUPS = pickByType(allAddons, "SYRUP").map((a) => ({ id: String(a.id), name: a.name, price: parseFloat(a.price || "0") }));
 
     if (!MENUS.length) {
       if (elProducts) elProducts.innerHTML = "<p><em>No menus configured yet.</em></p>";
@@ -700,11 +726,11 @@
     if (elItemTotal) elItemTotal.textContent = money(basePrice + syrupExtra + tops);
   }
 
-  function openModal(product) {
+  function openProductModal(product) {
     currentProduct = product;
     if (elModalTitle) elModalTitle.textContent = product.name;
 
-    // Syrups
+    // syrups
     if (elFlavor) {
       elFlavor.innerHTML = "";
       const optDefault = document.createElement("option");
@@ -722,7 +748,7 @@
       });
     }
 
-    // Sizes
+    // sizes
     if (elSize) {
       elSize.innerHTML = "";
       const base = parseFloat(product.price || "0");
@@ -749,7 +775,7 @@
       }
     }
 
-    // Toppings
+    // toppings
     if (elToppings) {
       elToppings.innerHTML = "";
       TOPPINGS.forEach((t) => {
@@ -765,53 +791,19 @@
     elModal?.setAttribute("aria-hidden", "false");
   }
 
-  function closeModal() {
+  function closeProductModal() {
     elModal?.classList.add("jc-hidden");
     elModal?.setAttribute("aria-hidden", "true");
     currentProduct = null;
   }
 
-  elModalClose?.addEventListener("click", closeModal);
-  elSize?.addEventListener("change", updateItemTotal);
-  elFlavor?.addEventListener("change", updateItemTotal);
-  elToppings?.addEventListener("change", updateItemTotal);
-
-  elAddToCart?.addEventListener("click", () => {
-    if (!currentProduct) return;
-
-    const sizeOpt = elSize?.options?.[elSize.selectedIndex];
-    const sizePrice = parseFloat(sizeOpt?.dataset.price || currentProduct.price || "0");
-    const sizeLabel = sizeOpt?.textContent ? sizeOpt.textContent.split(" (")[0] : "Default";
-
-    const syrupOpt = elFlavor?.options?.[elFlavor.selectedIndex];
-    const syrupLabel = syrupOpt?.value ? syrupOpt.textContent.split(" (")[0] : "";
-    const syrupExtra = parseFloat(syrupOpt?.dataset.price || "0");
-
-    const tops = getSelectedToppings();
-    const topsTotal = tops.reduce((s, t) => s + (t.price || 0), 0);
-
-    const unit_price = Math.round((sizePrice + syrupExtra + topsTotal) * 100) / 100;
-
-    CART.push({
-      product_id: currentProduct.id,
-      variation_id: null,
-      name: currentProduct.name,
-      qty: 1,
-      unit_price,
-      meta: { size: sizeLabel, syrup: syrupLabel, toppings: tops },
-    });
-
-    closeModal();
-    renderCart();
-  });
-
-  // ---------------- Customer picker ----------------
+  // ---------------- Customers ----------------
   function initCustomerIndex() {
     if (!elCustomerJson) return;
     try {
       CUSTOMER_INDEX = JSON.parse(elCustomerJson.textContent || "[]");
     } catch (err) {
-      console.error("JC POS customer JSON parse error:", err);
+      console.error("Customer JSON parse error:", err);
       CUSTOMER_INDEX = [];
     }
   }
@@ -832,6 +824,28 @@
     if (customer?.nit) parts.push(`NIT: ${customer.nit}`);
     if (customer?.phone) parts.push(`Phone: ${customer.phone}`);
     return parts.join(" • ");
+  }
+
+  function hasSelectedCustomer() {
+    return !!(elSaleCustomerId && String(elSaleCustomerId.value || "").trim() !== "");
+  }
+
+  function updateCustomerRequirementState() {
+    if (!elCustomerRequirement) return;
+
+    if (getDocType() !== "CREDITO_FISCAL") {
+      elCustomerRequirement.textContent = "Optional for Consumidor Final. Required for Crédito Fiscal.";
+      elCustomerRequirement.style.color = "#50575e";
+      return;
+    }
+
+    if (hasSelectedCustomer()) {
+      elCustomerRequirement.textContent = "Customer selected for Crédito Fiscal.";
+      elCustomerRequirement.style.color = "#008a20";
+    } else {
+      elCustomerRequirement.textContent = "Crédito Fiscal requires a selected customer before completing the sale.";
+      elCustomerRequirement.style.color = "#d63638";
+    }
   }
 
   function setCustomerError(message) {
@@ -866,18 +880,18 @@
   function selectCustomer(customer) {
     writeCustomerHiddenFields(customer);
     updateCustomerRequirementState();
-    if (elResult) elResult.innerHTML = "";
 
+    if (elResult) elResult.innerHTML = "";
     if (elCustomerSearch) elCustomerSearch.value = customerDisplayName(customer);
+
     setCustomerError("");
     clearCustomerResults();
   }
 
   function clearSelectedCustomer() {
     writeCustomerHiddenFields(null);
-    if (elCustomerSearch) elCustomerSearch.value = "";
     updateCustomerRequirementState();
-    if (elResult) elResult.innerHTML = "";
+    if (elCustomerSearch) elCustomerSearch.value = "";
     setCustomerError("");
     clearCustomerResults();
   }
@@ -894,7 +908,9 @@
       customer?.nit,
       customer?.phone,
       customer?.email,
-    ].map(normalizeText).join(" ");
+    ]
+      .map(normalizeText)
+      .join(" ");
 
     return haystack.includes(q);
   }
@@ -903,7 +919,6 @@
     if (!elCustomerResults) return;
 
     elCustomerResults.innerHTML = "";
-
     if (!list.length) {
       elCustomerResults.innerHTML =
         '<div style="padding:8px 10px;color:#50575e;font-size:12px;">No matching customers found.</div>';
@@ -950,7 +965,7 @@
       return;
     }
 
-    const matches = CUSTOMER_INDEX.filter((customer) => customerMatches(customer, q)).slice(0, 20);
+    const matches = CUSTOMER_INDEX.filter((c) => customerMatches(c, q)).slice(0, 20);
     renderCustomerResults(matches);
   }
 
@@ -958,8 +973,8 @@
     if (!elCustomerBox || !elCustomerJson) return;
 
     initCustomerIndex();
-    elCustomerSearchBtn?.addEventListener("click", runCustomerSearch);
 
+    elCustomerSearchBtn?.addEventListener("click", runCustomerSearch);
     elCustomerSearch?.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
         event.preventDefault();
@@ -976,7 +991,7 @@
   }
 
   // ---------------- Reset sale ----------------
-  function resetSaleUI() {
+  function resetSaleUI({ clearCustomer = true } = {}) {
     if (elResult) elResult.innerHTML = "";
 
     CART = [];
@@ -990,13 +1005,10 @@
     if (elFeeLabel) elFeeLabel.value = "";
     if (elFeeValue) elFeeValue.value = "0";
 
+    if (clearCustomer) clearSelectedCustomer();
+
     updateTotalsUI();
   }
-
-  elReceiptNewSale?.addEventListener("click", () => {
-    resetSaleUI();
-    closeReceiptAndClear();
-  });
 
   // ---------------- Checkout ----------------
   async function checkout() {
@@ -1010,6 +1022,7 @@
     const soldCart = CART.map((x) => JSON.parse(JSON.stringify(x)));
 
     if (elResult) elResult.innerHTML = "<p>Processing...</p>";
+    if (elCheckout) elCheckout.disabled = true;
 
     const payload = {
       cart: CART,
@@ -1042,36 +1055,73 @@
       console.error("Checkout error:", err);
       const msg = err?.data?.message || err?.data?.error || err?.message || "Request failed";
       if (elResult) elResult.innerHTML = `<p class="jc-bad">Error: ${escapeHtml(msg)}</p>`;
+      if (elCheckout) elCheckout.disabled = false;
       return;
     }
+
+    if (elCheckout) elCheckout.disabled = false;
 
     if (!res?.success) {
       if (elResult) elResult.innerHTML = `<p class="jc-bad">Error: ${escapeHtml(res?.error || "Unknown")}</p>`;
       return;
     }
 
+    // Build receipt + open modal
     const receiptHtml = buildReceiptHtml(res, soldCart);
+    LAST_RECEIPT_HTML = receiptHtml;
+    LAST_RESULT = res;
+    LAST_QR_URL = buildMhQrUrl(res);
 
-    // Open modal immediately, then render MH/QR inside it
     openReceiptModal(receiptHtml);
     setMhUI(res);
 
-    // Print: inject QR into printed receipt (wait a tick if needed)
-    if (elReceiptPrint) {
-      elReceiptPrint.onclick = () => printReceiptWithQr(receiptHtml, res);
-    }
+    // print uses QR (or URL fallback)
+    if (elReceiptPrint) elReceiptPrint.onclick = printReceiptWithQr;
 
-    // Modal is now the UX; don’t keep “Sale OK” box around
+    // clear bottom area; modal is now the UX
     if (elResult) elResult.innerHTML = "";
 
-    // Reset cart/totals for next sale (customer stays selected)
-    resetSaleUI();
+    // reset register for next sale
+    resetSaleUI({ clearCustomer: true });
   }
 
   // ---------------- Events ----------------
+  elModalClose?.addEventListener("click", closeProductModal);
+
+  elAddToCart?.addEventListener("click", () => {
+    if (!currentProduct) return;
+
+    const sizeOpt = elSize?.options?.[elSize.selectedIndex];
+    const sizePrice = parseFloat(sizeOpt?.dataset.price || currentProduct.price || "0");
+    const sizeLabel = sizeOpt?.textContent ? sizeOpt.textContent.split(" (")[0] : "Default";
+
+    const syrupOpt = elFlavor?.options?.[elFlavor.selectedIndex];
+    const syrupLabel = syrupOpt?.value ? syrupOpt.textContent.split(" (")[0] : "";
+    const syrupExtra = parseFloat(syrupOpt?.dataset.price || "0");
+
+    const tops = getSelectedToppings();
+    const topsTotal = tops.reduce((s, t) => s + (t.price || 0), 0);
+    const unit_price = Math.round((sizePrice + syrupExtra + topsTotal) * 100) / 100;
+
+    CART.push({
+      product_id: currentProduct.id,
+      variation_id: null,
+      name: currentProduct.name,
+      qty: 1,
+      unit_price,
+      meta: { size: sizeLabel, syrup: syrupLabel, toppings: tops },
+    });
+
+    closeProductModal();
+    renderCart();
+  });
+
+  elSize?.addEventListener("change", updateItemTotal);
+  elFlavor?.addEventListener("change", updateItemTotal);
+  elToppings?.addEventListener("change", updateItemTotal);
+
   elRefresh?.addEventListener("click", loadBootstrap);
   elCheckout?.addEventListener("click", checkout);
-
   elSearch?.addEventListener("input", (e) => renderProducts(e.target.value || ""));
 
   elDiscountType?.addEventListener("change", renderCart);
@@ -1079,9 +1129,41 @@
   elFeeLabel?.addEventListener("input", renderCart);
   elFeeValue?.addEventListener("input", renderCart);
 
+  elCashReceived?.addEventListener("input", updateChangeUI);
+  elCashExact?.addEventListener("click", () => {
+    if (!elCashReceived) return;
+    elCashReceived.value = String(Math.round(cartTotal() * 100) / 100);
+    updateChangeUI();
+  });
+
+  elDocRadios?.forEach((r) => r.addEventListener("change", updateDocUI));
+
+  // Receipt modal controls
+  elReceiptCloseX?.addEventListener("click", closeReceiptAndClear);
+  elReceiptCloseBtn?.addEventListener("click", closeReceiptAndClear);
+
+  elReceiptNewSale?.addEventListener("click", () => {
+    resetSaleUI({ clearCustomer: true });
+    closeReceiptAndClear();
+  });
+
+  // esc closes receipt modal
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && elReceiptModal && !elReceiptModal.classList.contains("jc-hidden")) {
+      closeReceiptAndClear();
+    }
+  });
+
   // ---------------- Boot ----------------
   updateDocUI();
   initCustomerPicker();
   loadBootstrap();
   renderCart();
+
+  // Optional debug (uncomment if you want console access)
+  // window.JC_POS_DEBUG = {
+  //   buildMhQrUrl,
+  //   getLast: () => LAST_RESULT,
+  //   getQr: () => LAST_QR_URL,
+  // };
 })();
