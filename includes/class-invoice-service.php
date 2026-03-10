@@ -201,99 +201,129 @@ class JC_Invoice_Service {
             if (empty($data['items']) || !is_array($data['items'])) {
                 throw new Exception('Invoice must include items.');
             }
-
             foreach ($data['items'] as $item) {
-                $qty = (float) ($item['quantity'] ?? 0);
-                $unit = (float) ($item['unit_price'] ?? 0);
+                $qty      = (float) ($item['quantity'] ?? 0);
+                $unit     = (float) ($item['unit_price'] ?? 0);
                 $tax_rate = (float) ($item['tax_rate'] ?? 0);
-
+            
                 if ($qty <= 0) {
                     throw new Exception('Invalid item quantity.');
                 }
-
+            
                 if ($unit < 0) {
                     throw new Exception('Invalid item unit price.');
                 }
-
+            
                 if ($tax_rate < 0) {
                     throw new Exception('Invalid item tax rate.');
                 }
-
+            
                 $docType = (string) $data['document_type'];
-
-                if ($docType === 'CONSUMIDOR_FINAL') {
-                    // unit_price is FINAL (tax-included). Split into base + IVA.
+            
+                /*
+                 * In your POS, the entered unit_price is the FINAL customer price.
+                 * So for BOTH CF and CCF, split gross price into base + IVA.
+                 *
+                 * Example:
+                 *   final = 5.00
+                 *   base  = 4.42
+                 *   iva   = 0.58
+                 *   total = 5.00
+                 */
+                if (in_array($docType, ['CONSUMIDOR_FINAL', 'CREDITO_FISCAL'], true)) {
                     $unit_base = ($tax_rate > 0)
                         ? ($unit / (1 + ($tax_rate / 100.0)))
                         : $unit;
-
+            
                     $unit_tax = $unit - $unit_base;
-
-                    $line_subtotal = $qty * $unit_base;
-                    $line_tax      = $qty * $unit_tax;
-                    $line_total    = $qty * $unit;
+            
+                    $line_subtotal = round($qty * $unit_base, 2);
+                    $line_tax      = round($qty * $unit_tax, 2);
+                    $line_total    = round($qty * $unit, 2);
                 } else {
-                    // For fiscal/other docs, unit_price is treated as NET.
-                    $line_subtotal = $qty * $unit;
-                    $line_tax      = ($line_subtotal * $tax_rate) / 100.0;
-                    $line_total    = $line_subtotal + $line_tax;
+                    // Keep old behavior for other document types unless needed later.
+                    $line_subtotal = round($qty * $unit, 2);
+                    $line_tax      = round(($line_subtotal * $tax_rate) / 100.0, 2);
+                    $line_total    = round($line_subtotal + $line_tax, 2);
                 }
-
+            
                 $subtotal  += $line_subtotal;
                 $tax_total += $line_tax;
-
+            
                 $items_calculated[] = [
                     'product_name' => (string) ($item['product_name'] ?? 'Item'),
                     'quantity'     => $qty,
-                    'unit_price'   => $unit,
-                    'tax_rate'     => $tax_rate,
+                    'unit_price'   => round($unit, 2),
+                    'tax_rate'     => round($tax_rate, 2),
                     'tax_amount'   => $line_tax,
                     'line_total'   => $line_total,
                 ];
             }
+            
+            $subtotal    = round($subtotal, 2);
+            $tax_total   = round($tax_total, 2);
+            $grand_total = round($subtotal + $tax_total, 2);
 
-            $grand_total = $subtotal + $tax_total;
 
-            // 2.5) Payment normalization
-            $payment_method = isset($data['payment_method'])
-                ? strtoupper(trim((string) $data['payment_method']))
-                : 'CASH';
+// 2.5) Payment normalization
+$payment_method = isset($data['payment_method'])
+    ? strtoupper(trim((string) $data['payment_method']))
+    : 'CASH';
 
-            $allowed_methods = ['CASH', 'CARD', 'MIXED'];
-            if (!in_array($payment_method, $allowed_methods, true)) {
-                $payment_method = 'CASH';
-            }
+$allowed_methods = ['CASH', 'CARD', 'MIXED'];
+if (!in_array($payment_method, $allowed_methods, true)) {
+    $payment_method = 'CASH';
+}
 
-            $cash_paid = isset($data['cash_paid']) ? (float) $data['cash_paid'] : 0.0;
-            $card_paid = isset($data['card_paid']) ? (float) $data['card_paid'] : 0.0;
+$has_cash_paid = isset($data['cash_paid']) && trim((string) $data['cash_paid']) !== '';
+$has_card_paid = isset($data['card_paid']) && trim((string) $data['card_paid']) !== '';
 
-            $caller_sent_payment =
-                array_key_exists('payment_method', $data) ||
-                array_key_exists('cash_paid', $data) ||
-                array_key_exists('card_paid', $data);
+$cash_paid = $has_cash_paid ? round((float) $data['cash_paid'], 2) : 0.0;
+$card_paid = $has_card_paid ? round((float) $data['card_paid'], 2) : 0.0;
 
-            if (!$caller_sent_payment) {
-                $payment_method = 'CASH';
-                $cash_paid = (float) $grand_total;
-                $card_paid = 0.0;
-            } else {
-                if ($payment_method === 'CASH') {
-                    $cash_paid = (float) $grand_total;
-                    $card_paid = 0.0;
-                } elseif ($payment_method === 'CARD') {
-                    $cash_paid = 0.0;
-                    $card_paid = (float) $grand_total;
-                } else { // MIXED
-                    if ($cash_paid < 0 || $card_paid < 0) {
-                        throw new Exception('Invalid payment amounts.');
-                    }
+$caller_sent_amounts = $has_cash_paid || $has_card_paid;
 
-                    $sum = $cash_paid + $card_paid;
-                    if (abs($sum - (float) $grand_total) > 0.01) {
-                        throw new Exception('cash_paid + card_paid must equal invoice total.');
-                    }
-                }
-            }
+if (!$caller_sent_amounts) {
+    // No real tendered amounts came in, so default to exact payment.
+    if ($payment_method === 'CARD') {
+        $cash_paid = 0.0;
+        $card_paid = round((float) $grand_total, 2);
+    } else {
+        // CASH and MIXED without amounts fall back to exact cash
+        $payment_method = ($payment_method === 'MIXED') ? 'CASH' : $payment_method;
+        $cash_paid = round((float) $grand_total, 2);
+        $card_paid = 0.0;
+    }
+} else {
+    if ($cash_paid < 0 || $card_paid < 0) {
+        throw new Exception('Invalid payment amounts.');
+    }
+
+    if ($payment_method === 'CASH') {
+        if ($cash_paid + 0.0001 < (float) $grand_total) {
+            throw new Exception('Cash received cannot be less than invoice total.');
+        }
+        $card_paid = 0.0;
+
+    } elseif ($payment_method === 'CARD') {
+        $cash_paid = 0.0;
+
+        if (abs($card_paid - (float) $grand_total) > 0.01) {
+            throw new Exception('Card payment must equal invoice total.');
+        }
+
+    } else { // MIXED
+        $sum_paid = round($cash_paid + $card_paid, 2);
+
+        if ($sum_paid + 0.0001 < (float) $grand_total) {
+            throw new Exception('Cash + card cannot be less than invoice total.');
+        }
+    }
+}
+
+$total_paid = round($cash_paid + $card_paid, 2);
+$change_due = round(max(0, $total_paid - (float) $grand_total), 2);
+
 
             // 2.6) Find open register session
             $session_id = (int) $wpdb->get_var(
@@ -386,6 +416,9 @@ class JC_Invoice_Service {
                 'invoice_id'         => $invoice_id,
                 'ticket_number'      => $ticket_number,
                 'correlativo_number' => $correlativo->correlativo_number,
+                'grand_total'        => $grand_total,
+                'total_paid'         => $total_paid,
+                'change_due'         => $change_due,
             ];
 
         } catch (Exception $e) {

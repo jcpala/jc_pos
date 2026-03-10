@@ -320,28 +320,69 @@ class JC_REST_Register {
     if (empty($items)) {
       return new WP_Error('jc_no_valid_items', 'No valid items in cart.', ['status' => 400]);
     }
+  // Payment data: accept a few common field names from the POS frontend
+$payment_method_raw =
+$body['payment_method']
+?? $body['paymentMethod']
+?? $body['payment_type']
+?? $body['paymentType']
+?? 'CASH';
 
-    $payload = [
-      'store_id'        => $store_id,
-      'register_id'     => $register_id,
-      'document_type'   => $document_type,
-      'items'           => $items,
-      'discount_type'   => $discount_type,
-      'discount_value'  => $discount_value,
-      'fee_label'       => $fee_label,
-      'fee_value'       => $fee_value,
+$payment_method = strtoupper(trim((string) $payment_method_raw));
+if (!in_array($payment_method, ['CASH', 'CARD', 'MIXED'], true)) {
+$payment_method = 'CASH';
+}
 
-      // Customer link + snapshot
-      'customer_id'      => (int) $resolved_customer['customer_id'],
-      'customer_name'    => $resolved_customer['customer_name'],
-      'customer_company' => $resolved_customer['customer_company'],
-      'customer_nrc'     => $resolved_customer['customer_nrc'],
-      'customer_nit'     => $resolved_customer['customer_nit'],
-      'customer_address' => $resolved_customer['customer_address'],
-      'customer_city'    => $resolved_customer['customer_city'],
-      'customer_phone'   => $resolved_customer['customer_phone'],
-      'customer_email'   => $resolved_customer['customer_email'],
-    ];
+$cash_paid_raw =
+$body['cash_paid']
+?? $body['cashPaid']
+?? $body['cash_received']
+?? $body['cashReceived']
+?? $body['amount_received']
+?? $body['amountReceived']
+?? $body['received']
+?? $body['tendered']
+?? null;
+
+$card_paid_raw =
+$body['card_paid']
+?? $body['cardPaid']
+?? $body['card_amount']
+?? $body['cardAmount']
+?? null;
+
+$cash_paid = ($cash_paid_raw !== null && trim((string) $cash_paid_raw) !== '')
+? round((float) $cash_paid_raw, 2)
+: null;
+
+$card_paid = ($card_paid_raw !== null && trim((string) $card_paid_raw) !== '')
+? round((float) $card_paid_raw, 2)
+: null;
+
+  $payload = [
+    'store_id'        => $store_id,
+    'register_id'     => $register_id,
+    'document_type'   => $document_type,
+    'items'           => $items,
+    'discount_type'   => $discount_type,
+    'discount_value'  => $discount_value,
+    'fee_label'       => $fee_label,
+    'fee_value'       => $fee_value,
+  
+    'payment_method'  => $payment_method,
+    'cash_paid'       => $cash_paid,
+    'card_paid'       => $card_paid,
+  
+    'customer_id'      => (int) $resolved_customer['customer_id'],
+    'customer_name'    => $resolved_customer['customer_name'],
+    'customer_company' => $resolved_customer['customer_company'],
+    'customer_nrc'     => $resolved_customer['customer_nrc'],
+    'customer_nit'     => $resolved_customer['customer_nit'],
+    'customer_address' => $resolved_customer['customer_address'],
+    'customer_city'    => $resolved_customer['customer_city'],
+    'customer_phone'   => $resolved_customer['customer_phone'],
+    'customer_email'   => $resolved_customer['customer_email'],
+  ];
 
     if (!class_exists('JC_Invoice_Service')) {
       return new WP_Error('jc_invoice_service_missing', 'JC_Invoice_Service is not loaded.', ['status' => 500]);
@@ -381,13 +422,25 @@ class JC_REST_Register {
         'error'     => 'JC_MH_Sender_Service is not loaded.',
       ];
     }
+    $unsigned_dte = null;
+    $folder = $document_type; // or map to CONSUMIDOR_FINAL/CREDITO_FISCAL
+    $path = WP_CONTENT_DIR . '/uploads/dte/' . $folder . '/unsigned-invoice-' . $invoice_id . '.json';
+    if (file_exists($path)) {
+      $unsigned_dte = json_decode(file_get_contents($path), true);
+    }
 
-    return rest_ensure_response([
-      'success'       => true,
-      'invoice_id'    => $invoice_id,
-      'ticket_number' => $result['ticket_number'] ?? null,
-      'document_type' => $document_type,
-      'mh'            => $mh,
-    ]);
-  }
+  $pdf_url = admin_url('admin-post.php?action=jc_dte_pdf&invoice_id='.(int)$invoice_id.'&autoprint=1');
+  $receipt_url = admin_url('admin-post.php?action=jc_dte_receipt&invoice_id='.(int)$invoice_id.'&autoprint=1');
+
+  return rest_ensure_response([
+    'success'       => true,
+    'invoice_id'    => $invoice_id,
+    'ticket_number' => $result['ticket_number'] ?? null,
+    'document_type' => $document_type,
+    'mh'            => $mh,
+    'dte'           => $unsigned_dte,
+    'pdf_url'       => $pdf_url,
+    'receipt_url'   => $receipt_url,
+  ]);
+  }  
 }

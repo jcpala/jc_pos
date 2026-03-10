@@ -1083,6 +1083,20 @@
 
     // reset register for next sale
     resetSaleUI({ clearCustomer: true });
+
+    /***************************************************************************************
+     * Print the receipt as soon as it completes the sale
+     ***************************************************************************************/
+    // Auto-print thermal receipt (80mm) immediately after sale
+    if (res.receipt_url) {
+    // Use a stable window name so it reuses the same popup
+      const w = window.open(res.receipt_url, "jc_thermal_receipt", "width=420,height=720");
+    // If popups are blocked, show a clear message
+    if (!w && elResult) {
+      elResult.innerHTML = `<p class="jc-bad">Popup blocked. Please allow popups to auto-print receipt.</p>`;
+    }
+  }
+    
   }
 
   // ---------------- Events ----------------

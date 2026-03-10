@@ -70,9 +70,19 @@ function jc_pos_admin_invoices_page() {
           <tr><th>Status</th><td><?php echo esc_html((string)($inv['status'] ?? '')); ?></td></tr>
           <tr><th>Payment</th>
             <td>
-              <?php echo esc_html((string)($inv['payment_method'] ?? '')); ?>
-              (Cash <?php echo esc_html(number_format($cash_paid, 2)); ?> /
-               Card <?php echo esc_html(number_format($card_paid, 2)); ?>)
+            <?php
+$invoiceTotal   = (float)($inv['total'] ?? 0);
+$amountReceived = round((float)($inv['cash_paid'] ?? 0) + (float)($inv['card_paid'] ?? 0), 2);
+$changeDue      = round(max(0, $amountReceived - $invoiceTotal), 2);
+$paymentMethod  = strtoupper((string)($inv['payment_method'] ?? 'CASH'));
+?>
+<div>
+  <strong><?php echo esc_html($paymentMethod); ?></strong>
+  <?php if (in_array($paymentMethod, ['CASH', 'MIXED'], true)) : ?>
+    <br><small>Recibido: $<?php echo esc_html(number_format($amountReceived, 2)); ?></small>
+    <br><small>Cambio: $<?php echo esc_html(number_format($changeDue, 2)); ?></small>
+  <?php endif; ?>
+</div>
             </td>
           </tr>
           </tbody>
@@ -116,25 +126,22 @@ function jc_pos_admin_invoices_page() {
 
         <h3>Ministerio de Hacienda</h3>
         <table class="widefat">
-          <tbody>
-          <tbody>
-<tr>
-  <th style="width:220px;">MH Badge</th>
-  <td>
-    <span style="padding:4px 8px;background: <?= ($inv['mh_status'] === 'SENT' ? '#d4edda' : '#f8d7da') ?>; border-radius:4px;">
-      <?= esc_html((string)($inv['mh_status'] ?? '-')) ?>
-    </span>
-  </td>
-</tr>
-<tr><th style="width:220px;">MH Status</th><td><?php echo esc_html((string)($inv['mh_status'] ?? '-')); ?></td></tr>
-          <tr><th style="width:220px;">MH Status</th><td><?php echo esc_html((string)($inv['mh_status'] ?? '-')); ?></td></tr>
-          <tr><th>Estado</th><td><?php echo esc_html((string)($inv['mh_estado'] ?? '-')); ?></td></tr>
-          <tr><th>Código Generación</th><td><?php echo esc_html((string)($inv['mh_codigo_generacion'] ?? '-')); ?></td></tr>
-          <tr><th>Sello Recibido</th><td><?php echo esc_html((string)($inv['mh_sello_recibido'] ?? '-')); ?></td></tr>
-          <tr><th>Código Msg</th><td><?php echo esc_html((string)($inv['mh_codigo_msg'] ?? '-')); ?></td></tr>
-          <tr><th>Descripción</th><td><?php echo esc_html((string)((($inv['mh_descripcion_msg'] ?? '') !== '') ? $inv['mh_descripcion_msg'] : ($inv['mh_last_error'] ?? '-'))); ?></td></tr>
-          </tbody>
-        </table>
+  <tbody>
+    <tr>
+      <th style="width:220px;">MH Badge</th>
+      <td>
+        <span style="padding:4px 8px; border-radius:4px; background: <?php echo (($inv['mh_status'] ?? '') === 'SENT') ? '#d4edda' : '#f8d7da'; ?>;">
+          <?php echo esc_html((string)($inv['mh_status'] ?? '-')); ?>
+        </span>
+      </td>
+    </tr>
+    <tr><th>Estado</th><td><?php echo esc_html((string)($inv['mh_estado'] ?? '-')); ?></td></tr>
+    <tr><th>Código Generación</th><td><?php echo esc_html((string)($inv['mh_codigo_generacion'] ?? '-')); ?></td></tr>
+    <tr><th>Sello Recibido</th><td><?php echo esc_html((string)($inv['mh_sello_recibido'] ?? '-')); ?></td></tr>
+    <tr><th>Código Msg</th><td><?php echo esc_html((string)($inv['mh_codigo_msg'] ?? '-')); ?></td></tr>
+    <tr><th>Descripción</th><td><?php echo esc_html((string)((($inv['mh_descripcion_msg'] ?? '') !== '') ? $inv['mh_descripcion_msg'] : ($inv['mh_last_error'] ?? '-'))); ?></td></tr>
+  </tbody>
+</table>
       </div>
     </div>
 
@@ -284,25 +291,43 @@ function jc_pos_admin_invoices_page() {
 
     <table class="widefat striped">
       <thead>
-        <tr>
-          <th>ID</th><th>Issued</th><th>Doc</th><th>Register</th><th>Ticket</th>
-          <th>Total</th><th>Pay</th><th>Status</th><th>MH</th><th>Attempts</th><th>CodigoGen</th>
-        </tr>
+      <tr>
+  <th>ID</th>
+  <th>Issued</th>
+  <th>Doc</th>
+  <th>Register</th>
+  <th>Ticket</th>
+  <th>Total</th>
+  <th>Pay</th>
+  <th>Status</th>
+  <th>MH</th>
+  <th>Attempts</th>
+  <th>CodigoGen</th>
+  <th>Actions</th>
+</tr>
       </thead>
       <tbody>
       <?php if (empty($rows)): ?>
-        <tr><td colspan="11">No invoices found.</td></tr>
+        <tr><td colspan="12">No invoices found.</td></tr>
       <?php else: foreach ($rows as $row):
-        $receipt_url = $build_url(['page' => 'jc-pos-invoices', 'view' => 'receipt', 'invoice_id' => (int)$row->id]);
-        $cash_paid = (float)($row->cash_paid ?? 0);
-        $card_paid = (float)($row->card_paid ?? 0);
+      $receipt_view_url = $build_url([
+          'page' => 'jc-pos-invoices',
+          'view' => 'receipt',
+          'invoice_id' => (int)$row->id
+]);
+
+$receipt_print_url = admin_url('admin-post.php?action=jc_dte_receipt&invoice_id=' . (int)$row->id);
+$pdf_print_url     = admin_url('admin-post.php?action=jc_dte_pdf&invoice_id=' . (int)$row->id);
+
+$cash_paid = (float)($row->cash_paid ?? 0);
+$card_paid = (float)($row->card_paid ?? 0);
       ?>
         <tr>
-          <td><a href="<?php echo esc_url($receipt_url); ?>"><strong>#<?php echo (int)$row->id; ?></strong></a></td>
+        <td><a href="<?php echo esc_url($receipt_view_url); ?>"><strong>#<?php echo (int)$row->id; ?></strong></a></td>
           <td><?php echo esc_html((string)$row->issued_at); ?></td>
           <td><?php echo esc_html((string)$row->document_type); ?></td>
           <td><?php echo (int)$row->register_id; ?></td>
-          <td><a href="<?php echo esc_url($receipt_url); ?>"><?php echo (int)$row->ticket_number; ?></a></td>
+          <td><a href="<?php echo esc_url($receipt_view_url); ?>"><?php echo (int)$row->ticket_number; ?></a></td>
           <td><?php echo esc_html(number_format((float)$row->total, 2)); ?></td>
           <td>
             <?php echo esc_html((string)($row->payment_method ?? '')); ?><br>
@@ -314,6 +339,27 @@ function jc_pos_admin_invoices_page() {
           <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
             <?php echo esc_html((string)($row->mh_codigo_generacion ?: '-')); ?>
           </td>
+          <td>
+  <div style="display:flex; gap:6px; align-items:center;">
+    <a class="button button-small jc-icon-btn"
+       href="<?php echo esc_url($receipt_view_url); ?>"
+       title="View receipt">
+      <span class="dashicons dashicons-visibility" style="font-size:16px; width:16px; height:16px; line-height:1.2;"></span>
+    </a>
+
+    <a class="button button-small jc-icon-btn"
+       href="<?php echo esc_url($receipt_print_url); ?>"
+       title="Print receipt">
+      <span class="dashicons dashicons-media-text" style="font-size:16px; width:16px; height:16px; line-height:1.2;"></span>
+    </a>
+
+    <a class="button button-small jc-icon-btn"
+       href="<?php echo esc_url($pdf_print_url); ?>"
+       title="Open PDF">
+      <span class="dashicons dashicons-pdf" style="font-size:16px; width:16px; height:16px; line-height:1.2;"></span>
+    </a>
+  </div>
+</td>
         </tr>
       <?php endforeach; endif; ?>
       </tbody>

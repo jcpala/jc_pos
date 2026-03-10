@@ -23,11 +23,23 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-register-session-servic
 require_once plugin_dir_path(__FILE__) . 'includes/class-customer-service.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-jc-customers-admin.php';
 
+/*******************************************************************
+ * 80mm receipt
+ *******************************************************************/
+require_once plugin_dir_path(__FILE__) . 'includes/services/class-jc-dte-receipt-service.php';
+JC_DTE_Receipt_Service::init();
+
+
 // Add the PDF service require (adjust if your path differs)
 require_once plugin_dir_path(__FILE__) . 'includes/Services/class-jc-dte-pdf-service.php';
+add_action('init', ['JC_DTE_Pdf_Service', 'init']);
 
-// Register PDF route
-JC_DTE_Pdf_Service::register_routes();
+JC_DTE_Pdf_Service::init(); // or register_routes()
+if (class_exists('JC_DTE_Pdf_Service')) {
+    JC_DTE_Pdf_Service::register_routes();
+  }
+
+
 
 JC_Customers_Admin::init();
 
@@ -41,6 +53,10 @@ add_action('admin_init', function () {
         add_option('jc_low_ticket_threshold', 100);
     }
 });
+
+
+
+
 
 require_once plugin_dir_path(__FILE__) . 'includes/class-correlativo-notices.php';
 add_action('init', ['JC_Correlativo_Notices', 'init']);
