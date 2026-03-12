@@ -45,6 +45,7 @@ function jc_pos_admin_invoices_page() {
     <div class="wrap">
       <h1>Invoice Receipt</h1>
 
+      
       <p>
         <a class="button" href="<?php echo esc_url($back_url); ?>">← Back</a>
         <button class="button button-primary" onclick="window.print()">Print</button>
@@ -206,20 +207,31 @@ $paymentMethod  = strtoupper((string)($inv['payment_method'] ?? 'CASH'));
   $total_pages = max(1, (int)ceil($total_rows / $per_page));
 
   $sql_rows = "
-    SELECT i.id, i.register_id, i.document_type, i.ticket_number, i.total,
-           i.payment_method, i.cash_paid, i.card_paid,
-           i.status, i.mh_status, i.mh_attempts, i.mh_codigo_generacion, i.issued_at
-    FROM {$tbl_invoices} i
-    {$where}
-    ORDER BY i.issued_at DESC
-    LIMIT %d OFFSET %d
-  ";
+  SELECT i.id, i.register_id, i.document_type, i.ticket_number, i.total,
+         i.payment_method, i.cash_paid, i.card_paid,
+         i.status, i.mh_status, i.mh_attempts, i.mh_codigo_generacion, i.issued_at,
+         i.customer_email, i.email_status, i.email_attempts, i.email_sent_at
+  FROM {$tbl_invoices} i
+  {$where}
+  ORDER BY i.issued_at DESC
+  LIMIT %d OFFSET %d
+";
   $rows = $wpdb->get_results($wpdb->prepare($sql_rows, ...array_merge($params, [$per_page, $offset])));
 
   $reset_url = $build_url(['page' => 'jc-pos-invoices']);
   ?>
   <div class="wrap">
     <h1>Invoices</h1>
+    <?php
+$jc_email_notice = isset($_GET['jc_email_notice']) ? sanitize_text_field((string)$_GET['jc_email_notice']) : '';
+$jc_email_msg    = isset($_GET['jc_email_msg']) ? sanitize_text_field((string)rawurldecode($_GET['jc_email_msg'])) : '';
+
+if ($jc_email_notice !== '' && $jc_email_msg !== ''):
+?>
+  <div class="notice notice-<?php echo esc_attr($jc_email_notice === 'success' ? 'success' : 'error'); ?> is-dismissible">
+    <p><?php echo esc_html($jc_email_msg); ?></p>
+  </div>
+<?php endif; ?>
 
     <form method="get" style="margin:10px 0; display:flex; flex-wrap:wrap; gap:10px; align-items:end;">
       <input type="hidden" name="page" value="jc-pos-invoices">
@@ -301,6 +313,7 @@ $paymentMethod  = strtoupper((string)($inv['payment_method'] ?? 'CASH'));
   <th>Pay</th>
   <th>Status</th>
   <th>MH</th>
+  <th>Email</th>
   <th>Attempts</th>
   <th>CodigoGen</th>
   <th>Actions</th>
@@ -308,12 +321,40 @@ $paymentMethod  = strtoupper((string)($inv['payment_method'] ?? 'CASH'));
       </thead>
       <tbody>
       <?php if (empty($rows)): ?>
-        <tr><td colspan="12">No invoices found.</td></tr>
+        <tr><td colspan="13">No invoices found.</td></tr>
       <?php else: foreach ($rows as $row):
+      $resend_email_url = wp_nonce_url(
+        admin_url('admin-post.php?action=jc_pos_resend_email&invoice_id=' . (int)$row->id),
+        'jc_pos_resend_email_' . (int)$row->id
+    );
+    
+    $email_status = strtoupper((string)($row->email_status ?? 'PENDING'));
+    $customer_email = trim((string)($row->customer_email ?? ''));
+    $email_attempts = (int)($row->email_attempts ?? 0);
+    
+    $email_bg = '#f6f7f7';
+    $email_fg = '#1d2327';
+    
+    if ($email_status === 'SENT') {
+        $email_bg = '#d1e7dd';
+        $email_fg = '#0f5132';
+    } elseif ($email_status === 'FAILED') {
+        $email_bg = '#f8d7da';
+        $email_fg = '#842029';
+    } elseif ($email_status === 'SKIPPED') {
+        $email_bg = '#e2e3e5';
+        $email_fg = '#41464b';
+    } elseif ($email_status === 'PENDING') {
+        $email_bg = '#fff3cd';
+        $email_fg = '#664d03';
+    }
+    
+    $can_resend_email = ($customer_email !== '');
       $receipt_view_url = $build_url([
           'page' => 'jc-pos-invoices',
           'view' => 'receipt',
-          'invoice_id' => (int)$row->id
+          'invoice_id' => (int)$row->id,
+          
 ]);
 
 $receipt_print_url = admin_url('admin-post.php?action=jc_dte_receipt&invoice_id=' . (int)$row->id);
@@ -335,10 +376,25 @@ $card_paid = (float)($row->card_paid ?? 0);
           </td>
           <td><?php echo esc_html((string)$row->status); ?></td>
           <td><?php echo esc_html((string)$row->mh_status); ?></td>
-          <td><?php echo (int)$row->mh_attempts; ?></td>
+          <td>
+  <span style="display:inline-block; padding:4px 8px; border-radius:4px; background:<?php echo esc_attr($email_bg); ?>; color:<?php echo esc_attr($email_fg); ?>;">
+    <?php echo esc_html($email_status); ?>
+  </span>
+  <?php if ($customer_email !== ''): ?>
+    <br><small><?php echo esc_html($customer_email); ?></small>
+  <?php else: ?>
+    <br><small>-</small>
+  <?php endif; ?>
+</td>
+          <!-- <td><?php echo (int)$row->mh_attempts; ?></td> -->
+          <td>
+        <?php echo (int)$row->mh_attempts; ?>
+            <br><small>E: <?php echo (int)$email_attempts; ?></small>
+          </td>
           <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
             <?php echo esc_html((string)($row->mh_codigo_generacion ?: '-')); ?>
           </td>
+          <td>
           <td>
   <div style="display:flex; gap:6px; align-items:center;">
     <a class="button button-small jc-icon-btn"
@@ -358,7 +414,21 @@ $card_paid = (float)($row->card_paid ?? 0);
        title="Open PDF">
       <span class="dashicons dashicons-pdf" style="font-size:16px; width:16px; height:16px; line-height:1.2;"></span>
     </a>
+
+    <?php if ($can_resend_email): ?>
+      <a class="button button-small jc-icon-btn"
+         href="<?php echo esc_url($resend_email_url); ?>"
+         title="Resend email"
+         onclick="return confirm('Resend this document by email?');">
+        <span class="dashicons dashicons-email-alt" style="font-size:16px; width:16px; height:16px; line-height:1.2;"></span>
+      </a>
+    <?php else: ?>
+      <span class="button button-small jc-icon-btn" title="No customer email" style="opacity:.45; cursor:not-allowed;">
+        <span class="dashicons dashicons-email-alt" style="font-size:16px; width:16px; height:16px; line-height:1.2;"></span>
+      </span>
+    <?php endif; ?>
   </div>
+</td>
 </td>
         </tr>
       <?php endforeach; endif; ?>
