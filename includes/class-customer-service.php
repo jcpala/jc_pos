@@ -109,6 +109,94 @@ if (!class_exists('JC_Customer_Service')) {
 
             return '';
         }
+        public static function get_departamentos(): array {
+            global $wpdb;
+        
+            $table = $wpdb->prefix . 'jc_cat_departamentos';
+        
+            $rows = $wpdb->get_results(
+                "SELECT code, name
+                 FROM {$table}
+                 WHERE is_active = 1
+                 ORDER BY name ASC",
+                ARRAY_A
+            );
+        
+            return is_array($rows) ? $rows : [];
+        }
+        
+        public static function get_municipios_by_departamento(string $departamento_code = ''): array {
+            global $wpdb;
+        
+            $table = $wpdb->prefix . 'jc_cat_municipios';
+            $departamento_code = trim($departamento_code);
+        
+            if ($departamento_code === '') {
+                $rows = $wpdb->get_results(
+                    "SELECT departamento_code, municipio_code, name
+                     FROM {$table}
+                     WHERE is_active = 1
+                     ORDER BY departamento_code ASC, name ASC",
+                    ARRAY_A
+                );
+        
+                return is_array($rows) ? $rows : [];
+            }
+        
+            $sql = $wpdb->prepare(
+                "SELECT departamento_code, municipio_code, name
+                 FROM {$table}
+                 WHERE is_active = 1
+                   AND departamento_code = %s
+                 ORDER BY name ASC",
+                $departamento_code
+            );
+        
+            $rows = $wpdb->get_results($sql, ARRAY_A);
+        
+            return is_array($rows) ? $rows : [];
+        }
+        
+        public static function get_actividades_economicas(string $search = '', int $limit = 200): array {
+            global $wpdb;
+        
+            $table = $wpdb->prefix . 'jc_cat_actividades_economicas';
+            $limit = max(1, min(500, $limit));
+            $search = trim($search);
+        
+            if ($search === '') {
+                $sql = $wpdb->prepare(
+                    "SELECT code, name
+                     FROM {$table}
+                     WHERE is_active = 1
+                     ORDER BY name ASC
+                     LIMIT %d",
+                    $limit
+                );
+        
+                $rows = $wpdb->get_results($sql, ARRAY_A);
+                return is_array($rows) ? $rows : [];
+            }
+        
+            $like = '%' . $wpdb->esc_like($search) . '%';
+        
+            $sql = $wpdb->prepare(
+                "SELECT code, name
+                 FROM {$table}
+                 WHERE is_active = 1
+                   AND (code LIKE %s OR name LIKE %s)
+                 ORDER BY name ASC
+                 LIMIT %d",
+                $like,
+                $like,
+                $limit
+            );
+        
+            $rows = $wpdb->get_results($sql, ARRAY_A);
+        
+            return is_array($rows) ? $rows : [];
+        }
+
 
         /**
          * Create or update a customer.
@@ -123,31 +211,47 @@ if (!class_exists('JC_Customer_Service')) {
             $table = self::customers_table();
 
             $record = [
-                'wp_user_id' => isset($data['wp_user_id']) && (int) $data['wp_user_id'] > 0 ? (int) $data['wp_user_id'] : null,
-                'first_name' => self::normalize_text($data['first_name'] ?? null),
-                'last_name'  => self::normalize_text($data['last_name'] ?? null),
-                'company'    => self::normalize_text($data['company'] ?? null),
-                'nrc'        => self::normalize_text($data['nrc'] ?? null),
-                'nit'        => self::normalize_text($data['nit'] ?? null),
-                'address'    => self::normalize_textarea($data['address'] ?? null),
-                'city'       => self::normalize_text($data['city'] ?? null),
-                'phone'      => self::normalize_text($data['phone'] ?? null),
-                'email'      => self::normalize_email($data['email'] ?? null),
-                'is_active'  => isset($data['is_active']) ? (int) (bool) $data['is_active'] : 1,
-                'updated_at' => current_time('mysql'),
+                'wp_user_id'                => isset($data['wp_user_id']) && (int) $data['wp_user_id'] > 0 ? (int) $data['wp_user_id'] : null,
+                'tipo_persona'              => self::normalize_text($data['tipo_persona'] ?? null),
+                'first_name'                => self::normalize_text($data['first_name'] ?? null),
+                'last_name'                 => self::normalize_text($data['last_name'] ?? null),
+                'company'                   => self::normalize_text($data['company'] ?? null),
+                'nombre_comercial'          => self::normalize_text($data['nombre_comercial'] ?? null),
+                'nrc'                       => self::normalize_text($data['nrc'] ?? null),
+                'nit'                       => self::normalize_text($data['nit'] ?? null),
+                'actividad_economica_code'  => self::normalize_text($data['actividad_economica_code'] ?? null),
+                'actividad_economica_desc'  => self::normalize_text($data['actividad_economica_desc'] ?? null),
+                'address'                   => self::normalize_textarea($data['address'] ?? null),
+                'city'                      => self::normalize_text($data['city'] ?? null),
+                'departamento_code'         => self::normalize_text($data['departamento_code'] ?? null),
+                'municipio_code'            => self::normalize_text($data['municipio_code'] ?? null),
+                'direccion_complemento'     => self::normalize_textarea($data['direccion_complemento'] ?? null),
+                'phone'                     => self::normalize_text($data['phone'] ?? null),
+                'email'                     => self::normalize_email($data['email'] ?? null),
+                'tipo_documento'            => self::normalize_text($data['tipo_documento'] ?? null),
+                'is_active'                 => isset($data['is_active']) ? (int) (bool) $data['is_active'] : 1,
+                'updated_at'                => current_time('mysql'),
             ];
 
             $formats = [
                 '%d', // wp_user_id
+                '%s', // tipo_persona
                 '%s', // first_name
                 '%s', // last_name
                 '%s', // company
+                '%s', // nombre_comercial
                 '%s', // nrc
                 '%s', // nit
+                '%s', // actividad_economica_code
+                '%s', // actividad_economica_desc
                 '%s', // address
                 '%s', // city
+                '%s', // departamento_code
+                '%s', // municipio_code
+                '%s', // direccion_complemento
                 '%s', // phone
                 '%s', // email
+                '%s', // tipo_documento
                 '%d', // is_active
                 '%s', // updated_at
             ];

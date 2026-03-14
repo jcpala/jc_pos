@@ -214,15 +214,21 @@ class JC_REST_Register {
     $customer_id = absint($body['customer_id'] ?? 0);
 
     $request_customer = [
-      'customer_id'      => $customer_id,
-      'customer_name'    => sanitize_text_field($body['customer_name'] ?? ''),
-      'customer_company' => sanitize_text_field($body['customer_company'] ?? ''),
-      'customer_nrc'     => sanitize_text_field($body['customer_nrc'] ?? ''),
-      'customer_nit'     => sanitize_text_field($body['customer_nit'] ?? ''),
-      'customer_address' => sanitize_textarea_field($body['customer_address'] ?? ''),
-      'customer_city'    => sanitize_text_field($body['customer_city'] ?? ''),
-      'customer_phone'   => sanitize_text_field($body['customer_phone'] ?? ''),
-      'customer_email'   => sanitize_email($body['customer_email'] ?? ''),
+      'customer_id'                    => $customer_id,
+      'customer_name'                  => sanitize_text_field($body['customer_name'] ?? ''),
+      'customer_company'               => sanitize_text_field($body['customer_company'] ?? ''),
+      'customer_nombre_comercial'      => sanitize_text_field($body['customer_nombre_comercial'] ?? ''),
+      'customer_nrc'                   => sanitize_text_field($body['customer_nrc'] ?? ''),
+      'customer_nit'                   => sanitize_text_field($body['customer_nit'] ?? ''),
+      'customer_address'               => sanitize_textarea_field($body['customer_address'] ?? ''),
+      'customer_city'                  => sanitize_text_field($body['customer_city'] ?? ''),
+      'customer_departamento_code'     => sanitize_text_field($body['customer_departamento_code'] ?? ''),
+      'customer_municipio_code'        => sanitize_text_field($body['customer_municipio_code'] ?? ''),
+      'customer_direccion_complemento' => sanitize_textarea_field($body['customer_direccion_complemento'] ?? ''),
+      'customer_actividad_code'        => sanitize_text_field($body['customer_actividad_code'] ?? ''),
+      'customer_actividad_desc'        => sanitize_text_field($body['customer_actividad_desc'] ?? ''),
+      'customer_phone'                 => sanitize_text_field($body['customer_phone'] ?? ''),
+      'customer_email'                 => sanitize_email($body['customer_email'] ?? ''),
     ];
 
     $resolved_customer = null;
@@ -239,17 +245,23 @@ class JC_REST_Register {
         ? JC_Customer_Service::build_customer_name($customer_row)
         : trim(((string) ($customer_row['first_name'] ?? '')) . ' ' . ((string) ($customer_row['last_name'] ?? '')));
 
-      $resolved_customer = [
-        'customer_id'      => (int) ($customer_row['id'] ?? 0),
-        'customer_name'    => $resolved_name,
-        'customer_company' => (string) ($customer_row['company'] ?? ''),
-        'customer_nrc'     => (string) ($customer_row['nrc'] ?? ''),
-        'customer_nit'     => (string) ($customer_row['nit'] ?? ''),
-        'customer_address' => (string) ($customer_row['address'] ?? ''),
-        'customer_city'    => (string) ($customer_row['city'] ?? ''),
-        'customer_phone'   => (string) ($customer_row['phone'] ?? ''),
-        'customer_email'   => (string) ($customer_row['email'] ?? ''),
-      ];
+        $resolved_customer = [
+          'customer_id'                    => (int) ($customer_row['id'] ?? 0),
+          'customer_name'                  => $resolved_name,
+          'customer_company'               => (string) ($customer_row['company'] ?? ''),
+          'customer_nombre_comercial'      => (string) ($customer_row['nombre_comercial'] ?? ''),
+          'customer_nrc'                   => (string) ($customer_row['nrc'] ?? ''),
+          'customer_nit'                   => (string) ($customer_row['nit'] ?? ''),
+          'customer_address'               => (string) ($customer_row['address'] ?? ''),
+          'customer_city'                  => (string) ($customer_row['city'] ?? ''),
+          'customer_departamento_code'     => (string) ($customer_row['departamento_code'] ?? ''),
+          'customer_municipio_code'        => (string) ($customer_row['municipio_code'] ?? ''),
+          'customer_direccion_complemento' => (string) ($customer_row['direccion_complemento'] ?? ''),
+          'customer_actividad_code'        => (string) ($customer_row['actividad_economica_code'] ?? ''),
+          'customer_actividad_desc'        => (string) ($customer_row['actividad_economica_desc'] ?? ''),
+          'customer_phone'                 => (string) ($customer_row['phone'] ?? ''),
+          'customer_email'                 => (string) ($customer_row['email'] ?? ''),
+        ];
     } else {
       // Fallback: use data from request
       $fallback_name = $request_customer['customer_name'];
@@ -258,38 +270,86 @@ class JC_REST_Register {
       }
 
       $resolved_customer = [
-        'customer_id'      => 0,
-        'customer_name'    => $fallback_name,
-        'customer_company' => $request_customer['customer_company'],
-        'customer_nrc'     => $request_customer['customer_nrc'],
-        'customer_nit'     => $request_customer['customer_nit'],
-        'customer_address' => $request_customer['customer_address'],
-        'customer_city'    => $request_customer['customer_city'],
-        'customer_phone'   => $request_customer['customer_phone'],
-        'customer_email'   => $request_customer['customer_email'],
+        'customer_id'                    => 0,
+        'customer_name'                  => $fallback_name,
+        'customer_company'               => $request_customer['customer_company'],
+        'customer_nombre_comercial'      => $request_customer['customer_nombre_comercial'],
+        'customer_nrc'                   => $request_customer['customer_nrc'],
+        'customer_nit'                   => $request_customer['customer_nit'],
+        'customer_address'               => $request_customer['customer_address'],
+        'customer_city'                  => $request_customer['customer_city'],
+        'customer_departamento_code'     => $request_customer['customer_departamento_code'],
+        'customer_municipio_code'        => $request_customer['customer_municipio_code'],
+        'customer_direccion_complemento' => $request_customer['customer_direccion_complemento'],
+        'customer_actividad_code'        => $request_customer['customer_actividad_code'],
+        'customer_actividad_desc'        => $request_customer['customer_actividad_desc'],
+        'customer_phone'                 => $request_customer['customer_phone'],
+        'customer_email'                 => $request_customer['customer_email'],
       ];
     }
 
     // Crédito Fiscal validation
     if ($document_type === 'CREDITO_FISCAL') {
       if ((int) $resolved_customer['customer_id'] <= 0) {
-        return new WP_Error('jc_cf_customer_required', 'Crédito Fiscal requires a selected customer.', ['status' => 400]);
+        return new WP_Error(
+          'jc_cf_customer_required',
+          'Crédito Fiscal requires a selected customer.',
+          ['status' => 400]
+        );
       }
-
+    
+      $missing = [];
+    
       if (trim((string) $resolved_customer['customer_name']) === '') {
-        return new WP_Error('jc_cf_name_required', 'Crédito Fiscal requires customer name or company.', ['status' => 400]);
+        $missing[] = 'name/company';
       }
-
+    
       if (trim((string) $resolved_customer['customer_nrc']) === '') {
-        return new WP_Error('jc_cf_nrc_required', 'Crédito Fiscal requires customer NRC.', ['status' => 400]);
+        $missing[] = 'NRC';
       }
-
+    
       if (trim((string) $resolved_customer['customer_nit']) === '') {
-        return new WP_Error('jc_cf_nit_required', 'Crédito Fiscal requires customer NIT.', ['status' => 400]);
+        $missing[] = 'NIT';
       }
-
-      if (trim((string) $resolved_customer['customer_address']) === '') {
-        return new WP_Error('jc_cf_address_required', 'Crédito Fiscal requires customer address.', ['status' => 400]);
+    
+      if (trim((string) $resolved_customer['customer_email']) === '') {
+        $missing[] = 'email';
+      }
+    
+      if (trim((string) $resolved_customer['customer_departamento_code']) === '') {
+        $missing[] = 'departamento';
+      }
+    
+      if (trim((string) $resolved_customer['customer_municipio_code']) === '') {
+        $missing[] = 'municipio';
+      }
+    
+      if (trim((string) $resolved_customer['customer_direccion_complemento']) === '') {
+        $missing[] = 'dirección complemento';
+      }
+    
+      if (trim((string) $resolved_customer['customer_actividad_code']) === '') {
+        $missing[] = 'actividad económica';
+      }
+    
+      if (trim((string) $resolved_customer['customer_actividad_desc']) === '') {
+        $missing[] = 'descripción actividad';
+      }
+    
+      if (!empty($resolved_customer['customer_email']) && !is_email((string) $resolved_customer['customer_email'])) {
+        $missing[] = 'valid email';
+      }
+    
+      if (!empty($missing)) {
+        return new WP_Error(
+          'jc_cf_customer_incomplete',
+          'Crédito Fiscal customer is incomplete. Missing: ' . implode(', ', $missing) . '.',
+          [
+            'status' => 400,
+            'missing_fields' => $missing,
+            'customer_id' => (int) $resolved_customer['customer_id'],
+          ]
+        );
       }
     }
 

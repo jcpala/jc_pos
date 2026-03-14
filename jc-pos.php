@@ -72,6 +72,7 @@ if (class_exists('JC_POS_SMTP_Service')) {
     JC_POS_SMTP_Service::init();
 }
 
+
 require_once plugin_dir_path(__FILE__) . 'includes/class-correlativo-notices.php';
 add_action('init', ['JC_Correlativo_Notices', 'init']);
 

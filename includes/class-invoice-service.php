@@ -52,6 +52,88 @@ class JC_Invoice_Service {
         return in_array($column, self::get_invoice_columns(), true);
     }
 
+    private static function clean_string($value): string {
+        return trim((string)$value);
+    }
+    
+    private static function clean_digits($value): string {
+        return preg_replace('/\D+/', '', (string)$value);
+    }
+    
+    private static function validate_invoice_input(array $data): void {
+        $document_type = strtoupper(trim((string)($data['document_type'] ?? '')));
+    
+        $customer_name                  = self::clean_string($data['customer_name'] ?? '');
+        $customer_company               = self::clean_string($data['customer_company'] ?? '');
+        $customer_nit                   = self::clean_digits($data['customer_nit'] ?? '');
+        $customer_nrc                   = self::clean_digits($data['customer_nrc'] ?? '');
+        $customer_address               = self::clean_string($data['customer_address'] ?? '');
+        $customer_email                 = sanitize_email((string)($data['customer_email'] ?? ''));
+    
+        $customer_departamento_code     = self::clean_string($data['customer_departamento_code'] ?? '');
+        $customer_municipio_code        = self::clean_string($data['customer_municipio_code'] ?? '');
+        $customer_direccion_complemento = self::clean_string($data['customer_direccion_complemento'] ?? '');
+        $customer_actividad_code        = self::clean_string($data['customer_actividad_code'] ?? '');
+        $customer_actividad_desc        = self::clean_string($data['customer_actividad_desc'] ?? '');
+    
+        $display_name = $customer_name !== '' ? $customer_name : $customer_company;
+    
+        if ($document_type === 'CREDITO_FISCAL') {
+            if ($display_name === '') {
+                throw new Exception('CCF requires customer name or company name.');
+            }
+    
+            if ($customer_email === '') {
+                throw new Exception('CCF requires customer email.');
+            }
+    
+            if (!is_email($customer_email)) {
+                throw new Exception('CCF requires a valid customer email.');
+            }
+    
+            if ($customer_nit === '') {
+                throw new Exception('CCF requires customer NIT.');
+            }
+    
+            if (!preg_match('/^\d{8,14}$/', $customer_nit)) {
+                throw new Exception('CCF requires a valid customer NIT.');
+            }
+    
+            if ($customer_nrc === '') {
+                throw new Exception('CCF requires customer NRC.');
+            }
+    
+            if ($customer_address === '' && $customer_direccion_complemento === '') {
+                throw new Exception('CCF requires customer address.');
+            }
+    
+            if ($customer_departamento_code === '') {
+                throw new Exception('CCF requires customer departamento.');
+            }
+    
+            if ($customer_municipio_code === '') {
+                throw new Exception('CCF requires customer municipio.');
+            }
+    
+            if ($customer_direccion_complemento === '') {
+                throw new Exception('CCF requires dirección complemento.');
+            }
+    
+            if ($customer_actividad_code === '') {
+                throw new Exception('CCF requires economic activity code.');
+            }
+    
+            if ($customer_actividad_desc === '') {
+                throw new Exception('CCF requires economic activity description.');
+            }
+        } else {
+            if (($data['customer_email'] ?? '') !== '' && !is_email($customer_email)) {
+                throw new Exception('Customer email format is invalid.');
+            }
+        }
+    }
+
+
     /**
      * Build invoice insert data, writing optional customer columns only if present.
      */
@@ -69,11 +151,12 @@ class JC_Invoice_Service {
     ): array {
         $customer_name = isset($data['customer_name']) ? (string) $data['customer_name'] : '';
         $customer_company = isset($data['customer_company']) ? (string) $data['customer_company'] : '';
-
+        $customer_nombre_comercial = isset($data['customer_nombre_comercial']) ? (string) $data['customer_nombre_comercial'] : '';
+    
         if ($customer_name === '' && $customer_company !== '') {
             $customer_name = $customer_company;
         }
-
+    
         $row = [
             'store_id'         => (int) $data['store_id'],
             'register_id'      => (int) $data['register_id'],
@@ -81,9 +164,9 @@ class JC_Invoice_Service {
             'correlativo_id'   => (int) $correlativo->id,
             'document_type'    => (string) $data['document_type'],
             'ticket_number'    => $ticket_number,
-            'customer_name'    => $customer_name !== '' ? $customer_name : null,
-            'customer_nit'     => isset($data['customer_nit']) && $data['customer_nit'] !== '' ? (string) $data['customer_nit'] : null,
-            'customer_address' => isset($data['customer_address']) && $data['customer_address'] !== '' ? (string) $data['customer_address'] : null,
+            'customer_name'    => $customer_name !== '' ? self::clean_string($customer_name) : null,
+            'customer_nit'     => self::clean_digits($data['customer_nit'] ?? '') !== '' ? self::clean_digits($data['customer_nit'] ?? '') : null,
+            'customer_address' => self::clean_string($data['customer_address'] ?? '') !== '' ? self::clean_string($data['customer_address'] ?? '') : null,
             'subtotal'         => $subtotal,
             'tax_amount'       => $tax_total,
             'total'            => $grand_total,
@@ -93,42 +176,153 @@ class JC_Invoice_Service {
             'status'           => 'ISSUED',
             'issued_at'        => current_time('mysql'),
         ];
-
+    
         // Optional linkage + snapshot fields (only if columns exist).
         if (self::invoice_has_column('customer_id')) {
             $row['customer_id'] = !empty($data['customer_id']) ? (int) $data['customer_id'] : null;
         }
-
+    
         if (self::invoice_has_column('customer_company')) {
-            $row['customer_company'] = $customer_company !== '' ? $customer_company : null;
+            $row['customer_company'] = $customer_company !== '' ? self::clean_string($customer_company) : null;
         }
-
+    
+        if (self::invoice_has_column('customer_nombre_comercial')) {
+            $row['customer_nombre_comercial'] = $customer_nombre_comercial !== '' ? self::clean_string($customer_nombre_comercial) : null;
+        }
+    
         if (self::invoice_has_column('customer_nrc')) {
-            $row['customer_nrc'] = isset($data['customer_nrc']) && $data['customer_nrc'] !== '' ? (string) $data['customer_nrc'] : null;
+            $row['customer_nrc'] = self::clean_digits($data['customer_nrc'] ?? '') !== '' ? self::clean_digits($data['customer_nrc'] ?? '') : null;
         }
-
+    
         if (self::invoice_has_column('customer_city')) {
-            $row['customer_city'] = isset($data['customer_city']) && $data['customer_city'] !== '' ? (string) $data['customer_city'] : null;
+            $row['customer_city'] = self::clean_string($data['customer_city'] ?? '') !== '' ? self::clean_string($data['customer_city'] ?? '') : null;
         }
-
+    
         if (self::invoice_has_column('customer_phone')) {
-            $row['customer_phone'] = isset($data['customer_phone']) && $data['customer_phone'] !== '' ? (string) $data['customer_phone'] : null;
+            $row['customer_phone'] = self::clean_digits($data['customer_phone'] ?? '') !== '' ? self::clean_digits($data['customer_phone'] ?? '') : null;
         }
-
+    
         if (self::invoice_has_column('customer_email')) {
-            $row['customer_email'] = isset($data['customer_email']) && $data['customer_email'] !== '' ? (string) $data['customer_email'] : null;
+            $email = sanitize_email((string) ($data['customer_email'] ?? ''));
+            $row['customer_email'] = $email !== '' ? $email : null;
         }
-
+    
+        if (self::invoice_has_column('customer_actividad_code')) {
+            $row['customer_actividad_code'] = self::clean_string($data['customer_actividad_code'] ?? '') !== '' ? self::clean_string($data['customer_actividad_code'] ?? '') : null;
+        }
+    
+        if (self::invoice_has_column('customer_actividad_desc')) {
+            $row['customer_actividad_desc'] = self::clean_string($data['customer_actividad_desc'] ?? '') !== '' ? self::clean_string($data['customer_actividad_desc'] ?? '') : null;
+        }
+    
+        if (self::invoice_has_column('customer_departamento_code')) {
+            $row['customer_departamento_code'] = self::clean_string($data['customer_departamento_code'] ?? '') !== '' ? self::clean_string($data['customer_departamento_code'] ?? '') : null;
+        }
+    
+        if (self::invoice_has_column('customer_municipio_code')) {
+            $row['customer_municipio_code'] = self::clean_string($data['customer_municipio_code'] ?? '') !== '' ? self::clean_string($data['customer_municipio_code'] ?? '') : null;
+        }
+    
+        if (self::invoice_has_column('customer_direccion_complemento')) {
+            $row['customer_direccion_complemento'] = self::clean_string($data['customer_direccion_complemento'] ?? '') !== '' ? self::clean_string($data['customer_direccion_complemento'] ?? '') : null;
+        }
+    
         return $row;
     }
+    private static function hydrate_customer_snapshot_data(array $data): array {
+        if (empty($data['customer_id']) || !class_exists('JC_Customer_Service')) {
+            return $data;
+        }
+    
+        $customer_id = (int) $data['customer_id'];
+        if ($customer_id <= 0) {
+            return $data;
+        }
+    
+        $customer = JC_Customer_Service::get_customer($customer_id);
+        if (!is_array($customer) || empty($customer)) {
+            return $data;
+        }
+    
+        $customer_name = trim(
+            ((string)($customer['first_name'] ?? '')) . ' ' .
+            ((string)($customer['last_name'] ?? ''))
+        );
+    
+        if ($customer_name === '' && !empty($customer['company'])) {
+            $customer_name = (string) $customer['company'];
+        }
+    
+        if (empty($data['customer_name']) && $customer_name !== '') {
+            $data['customer_name'] = $customer_name;
+        }
+    
+        if (empty($data['customer_company']) && !empty($customer['company'])) {
+            $data['customer_company'] = (string) $customer['company'];
+        }
+    
+        if (empty($data['customer_nombre_comercial']) && !empty($customer['nombre_comercial'])) {
+            $data['customer_nombre_comercial'] = (string) $customer['nombre_comercial'];
+        }
+    
+        if (empty($data['customer_nrc']) && !empty($customer['nrc'])) {
+            $data['customer_nrc'] = (string) $customer['nrc'];
+        }
+    
+        if (empty($data['customer_nit']) && !empty($customer['nit'])) {
+            $data['customer_nit'] = (string) $customer['nit'];
+        }
+    
+        if (empty($data['customer_address']) && !empty($customer['address'])) {
+            $data['customer_address'] = (string) $customer['address'];
+        }
+    
+        if (empty($data['customer_city']) && !empty($customer['city'])) {
+            $data['customer_city'] = (string) $customer['city'];
+        }
+    
+        if (empty($data['customer_phone']) && !empty($customer['phone'])) {
+            $data['customer_phone'] = (string) $customer['phone'];
+        }
+    
+        if (empty($data['customer_email']) && !empty($customer['email'])) {
+            $data['customer_email'] = (string) $customer['email'];
+        }
+    
+        if (empty($data['customer_actividad_code']) && !empty($customer['actividad_economica_code'])) {
+            $data['customer_actividad_code'] = (string) $customer['actividad_economica_code'];
+        }
+    
+        if (empty($data['customer_actividad_desc']) && !empty($customer['actividad_economica_desc'])) {
+            $data['customer_actividad_desc'] = (string) $customer['actividad_economica_desc'];
+        }
+    
+        if (empty($data['customer_departamento_code']) && !empty($customer['departamento_code'])) {
+            $data['customer_departamento_code'] = (string) $customer['departamento_code'];
+        }
+    
+        if (empty($data['customer_municipio_code']) && !empty($customer['municipio_code'])) {
+            $data['customer_municipio_code'] = (string) $customer['municipio_code'];
+        }
+    
+        if (empty($data['customer_direccion_complemento']) && !empty($customer['direccion_complemento'])) {
+            $data['customer_direccion_complemento'] = (string) $customer['direccion_complemento'];
+        }
+    
+        return $data;
+    }
+
+
 
     public static function create_invoice($data) {
         global $wpdb;
-
+    
         $t_correlativos      = self::table('jc_correlativos');
         $t_invoices          = self::table('jc_invoices');
         $t_invoice_items     = self::table('jc_invoice_items');
         $t_register_sessions = self::table('jc_register_sessions');
+    
+
 
         /*
         $data structure expected:
@@ -138,16 +332,22 @@ class JC_Invoice_Service {
             'register_id'   => int,
             'document_type' => 'CONSUMIDOR_FINAL' | 'CREDITO_FISCAL' | 'NOTA_CREDITO',
 
-            // customer linkage + snapshot (all optional except where validated before this point)
-            'customer_id'      => int|null,
-            'customer_name'    => string|null,
-            'customer_company' => string|null,
-            'customer_nrc'     => string|null,
-            'customer_nit'     => string|null,
-            'customer_address' => string|null,
-            'customer_city'    => string|null,
-            'customer_phone'   => string|null,
-            'customer_email'   => string|null,
+// customer linkage + snapshot
+'customer_id'                    => int|null,
+'customer_name'                  => string|null,
+'customer_company'               => string|null,
+'customer_nombre_comercial'      => string|null,
+'customer_nrc'                   => string|null,
+'customer_nit'                   => string|null,
+'customer_address'               => string|null,
+'customer_city'                  => string|null,
+'customer_departamento_code'     => string|null,
+'customer_municipio_code'        => string|null,
+'customer_direccion_complemento' => string|null,
+'customer_actividad_code'        => string|null,
+'customer_actividad_desc'        => string|null,
+'customer_phone'                 => string|null,
+'customer_email'                 => string|null,
 
             // optional payment
             // 'payment_method' => 'CASH'|'CARD'|'MIXED',
@@ -166,6 +366,24 @@ class JC_Invoice_Service {
         */
 
         try {
+            $data = self::hydrate_customer_snapshot_data($data);
+
+            error_log('JC create_invoice hydrated data: ' . print_r([
+                'customer_id'                    => $data['customer_id'] ?? null,
+                'customer_name'                  => $data['customer_name'] ?? null,
+                'customer_company'               => $data['customer_company'] ?? null,
+                'customer_nit'                   => $data['customer_nit'] ?? null,
+                'customer_nrc'                   => $data['customer_nrc'] ?? null,
+                'customer_departamento_code'     => $data['customer_departamento_code'] ?? null,
+                'customer_municipio_code'        => $data['customer_municipio_code'] ?? null,
+                'customer_direccion_complemento' => $data['customer_direccion_complemento'] ?? null,
+                'customer_actividad_code'        => $data['customer_actividad_code'] ?? null,
+                'customer_actividad_desc'        => $data['customer_actividad_desc'] ?? null,
+                'customer_email'                 => $data['customer_email'] ?? null,
+            ], true));
+            
+            self::validate_invoice_input($data);
+    
             $wpdb->query('START TRANSACTION');
 
             // 1) Lock correlativo
@@ -430,6 +648,8 @@ $change_due = round(max(0, $total_paid - (float) $grand_total), 2);
             ];
         }
     }
+
+
 
     public static function void_invoice(int $invoice_id, string $reason = ''): array {
         global $wpdb;

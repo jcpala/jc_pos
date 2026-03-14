@@ -6,9 +6,12 @@ class JC_MH_Sender_Service {
      * Send a single invoice to MH using the existing DTE stack.
      * Always records attempts + last error in wp_jc_invoices.
      */
+    
     public static function send_one(int $invoice_id): array {
         global $wpdb;
-
+        $tbl_invoices  = $wpdb->prefix . 'jc_invoices';
+        $tbl_registers = $wpdb->prefix . 'jc_registers';
+        
         if (function_exists('wc_get_logger')) {
             wc_get_logger()->info("JC_MH_Sender_Service::send_one invoice={$invoice_id}", ['source' => 'jc-pos']);
         }
@@ -17,7 +20,7 @@ class JC_MH_Sender_Service {
 
         try {
             $inv = $wpdb->get_row(
-                $wpdb->prepare("SELECT * FROM wp_jc_invoices WHERE id=%d FOR UPDATE", $invoice_id)
+                $wpdb->prepare("SELECT * FROM {$tbl_invoices}  WHERE id=%d FOR UPDATE", $invoice_id)
             );
 
             if (!$inv) {
@@ -66,7 +69,6 @@ class JC_MH_Sender_Service {
                     'mh_last_attempt_at' => $now,
                     'mh_last_error'      => $ok ? null : ($descMsg ?: 'MH send failed'),
                     'mh_response'        => wp_json_encode($resp, JSON_UNESCAPED_UNICODE),
-
                     'mh_codigo_generacion' => $codigoGen,
                     'mh_sello_recibido'    => $selloRecibido,
                     'mh_estado'            => $estado,
@@ -118,14 +120,14 @@ class JC_MH_Sender_Service {
                 $wpdb->query('START TRANSACTION');
 
                 $inv = $wpdb->get_row(
-                    $wpdb->prepare("SELECT * FROM wp_jc_invoices WHERE id=%d FOR UPDATE", $invoice_id)
+                    $wpdb->prepare("SELECT * FROM {tbl_invoices} WHERE id=%d FOR UPDATE", $invoice_id)
                 );
 
                 if ($inv) {
                     $attempts = ((int)($inv->mh_attempts ?? 0)) + 1;
 
                     $wpdb->update(
-                        'wp_jc_invoices',
+                        '{tbl_invoices}',
                         [
                             'mh_status'          => 'FAILED',
                             'mh_attempts'        => $attempts,
@@ -191,16 +193,41 @@ class JC_MH_Sender_Service {
         if (!class_exists('WC_DTE_SV')) {
             return ['estado' => 'FAILED', 'descripcionMsg' => 'WC_DTE_SV plugin not active'];
         }
-
-        if (function_exists('wc_get_logger')) {
-            wc_get_logger()->info("Calling WC_DTE_SV::send_dte_for_jc_invoice invoice={$invoice_id}", ['source' => 'jc-pos']);
+    
+        try {
+            if (function_exists('wc_get_logger')) {
+                wc_get_logger()->info(
+                    "Calling WC_DTE_SV::send_dte_for_jc_invoice invoice={$invoice_id}",
+                    ['source' => 'jc-pos']
+                );
+            }
+    
+            $dte  = new WC_DTE_SV();
+            $resp = $dte->send_dte_for_jc_invoice($invoice_id);
+    
+            if (function_exists('wc_get_logger')) {
+                wc_get_logger()->info(
+                    'WC_DTE response for invoice ' . $invoice_id . ': ' . wp_json_encode($resp, JSON_UNESCAPED_UNICODE),
+                    ['source' => 'jc-pos']
+                );
+            }
+    
+            return is_array($resp)
+                ? $resp
+                : ['estado' => 'FAILED', 'descripcionMsg' => 'Invalid MH response'];
+    
+        } catch (Throwable $e) {
+            if (function_exists('wc_get_logger')) {
+                wc_get_logger()->error(
+                    "WC_DTE exception for invoice {$invoice_id}: " . $e->getMessage(),
+                    ['source' => 'jc-pos']
+                );
+            }
+    
+            return [
+                'estado' => 'FAILED',
+                'descripcionMsg' => 'Exception calling WC_DTE_SV: ' . $e->getMessage(),
+            ];
         }
-
-        $dte = new WC_DTE_SV();
-        $resp = $dte->send_dte_for_jc_invoice($invoice_id);
-
-        return is_array($resp)
-            ? $resp
-            : ['estado' => 'FAILED', 'descripcionMsg' => 'Invalid MH response'];
     }
 }

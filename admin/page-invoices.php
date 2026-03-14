@@ -359,6 +359,14 @@ if ($jc_email_notice !== '' && $jc_email_msg !== ''):
 
 $receipt_print_url = admin_url('admin-post.php?action=jc_dte_receipt&invoice_id=' . (int)$row->id);
 $pdf_print_url     = admin_url('admin-post.php?action=jc_dte_pdf&invoice_id=' . (int)$row->id);
+$mh_retry_url = wp_nonce_url(
+  admin_url('admin-post.php?action=jc_mh_retry_invoice&invoice_id=' . (int)$row->id),
+  'jc_mh_retry_invoice_' . (int)$row->id
+);
+
+$can_retry_mh = in_array((string)$row->mh_status, ['PENDING', 'FAILED'], true);
+
+
 
 $cash_paid = (float)($row->cash_paid ?? 0);
 $card_paid = (float)($row->card_paid ?? 0);
@@ -427,6 +435,18 @@ $card_paid = (float)($row->card_paid ?? 0);
         <span class="dashicons dashicons-email-alt" style="font-size:16px; width:16px; height:16px; line-height:1.2;"></span>
       </span>
     <?php endif; ?>
+    <?php if ($can_retry_mh): ?>
+  <a class="button button-small jc-icon-btn"
+     href="<?php echo esc_url($mh_retry_url); ?>"
+     title="Re-submit to MH"
+     onclick="return confirm('Re-submit this invoice to MH?');">
+    <span class="dashicons dashicons-update" style="font-size:16px; width:16px; height:16px; line-height:1.2;"></span>
+  </a>
+<?php else: ?>
+  <span class="button button-small jc-icon-btn" title="MH retry not allowed" style="opacity:.45; cursor:not-allowed;">
+    <span class="dashicons dashicons-update" style="font-size:16px; width:16px; height:16px; line-height:1.2;"></span>
+  </span>
+<?php endif; ?>
   </div>
 </td>
 </td>

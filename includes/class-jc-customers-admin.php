@@ -100,18 +100,26 @@ if (!class_exists('JC_Customers_Admin')) {
             $customer_id = isset($_POST['customer_id']) ? absint($_POST['customer_id']) : 0;
 
             $data = [
-                'id'         => $customer_id,
-                'wp_user_id' => isset($_POST['wp_user_id']) ? absint($_POST['wp_user_id']) : null,
-                'first_name' => isset($_POST['first_name']) ? wp_unslash($_POST['first_name']) : '',
-                'last_name'  => isset($_POST['last_name']) ? wp_unslash($_POST['last_name']) : '',
-                'company'    => isset($_POST['company']) ? wp_unslash($_POST['company']) : '',
-                'nrc'        => isset($_POST['nrc']) ? wp_unslash($_POST['nrc']) : '',
-                'nit'        => isset($_POST['nit']) ? wp_unslash($_POST['nit']) : '',
-                'address'    => isset($_POST['address']) ? wp_unslash($_POST['address']) : '',
-                'city'       => isset($_POST['city']) ? wp_unslash($_POST['city']) : '',
-                'phone'      => isset($_POST['phone']) ? wp_unslash($_POST['phone']) : '',
-                'email'      => isset($_POST['email']) ? wp_unslash($_POST['email']) : '',
-                'is_active'  => isset($_POST['is_active']) ? 1 : 0,
+                'id'                       => $customer_id,
+                'wp_user_id'               => isset($_POST['wp_user_id']) ? absint($_POST['wp_user_id']) : null,
+                'tipo_persona'             => isset($_POST['tipo_persona']) ? wp_unslash($_POST['tipo_persona']) : '',
+                'first_name'               => isset($_POST['first_name']) ? wp_unslash($_POST['first_name']) : '',
+                'last_name'                => isset($_POST['last_name']) ? wp_unslash($_POST['last_name']) : '',
+                'company'                  => isset($_POST['company']) ? wp_unslash($_POST['company']) : '',
+                'nombre_comercial'         => isset($_POST['nombre_comercial']) ? wp_unslash($_POST['nombre_comercial']) : '',
+                'nrc'                      => isset($_POST['nrc']) ? wp_unslash($_POST['nrc']) : '',
+                'nit'                      => isset($_POST['nit']) ? wp_unslash($_POST['nit']) : '',
+                'actividad_economica_code' => isset($_POST['actividad_economica_code']) ? wp_unslash($_POST['actividad_economica_code']) : '',
+                'actividad_economica_desc' => isset($_POST['actividad_economica_desc']) ? wp_unslash($_POST['actividad_economica_desc']) : '',
+                'address'                  => isset($_POST['address']) ? wp_unslash($_POST['address']) : '',
+                'city'                     => isset($_POST['city']) ? wp_unslash($_POST['city']) : '',
+                'departamento_code'        => isset($_POST['departamento_code']) ? wp_unslash($_POST['departamento_code']) : '',
+                'municipio_code'           => isset($_POST['municipio_code']) ? wp_unslash($_POST['municipio_code']) : '',
+                'direccion_complemento'    => isset($_POST['direccion_complemento']) ? wp_unslash($_POST['direccion_complemento']) : '',
+                'phone'                    => isset($_POST['phone']) ? wp_unslash($_POST['phone']) : '',
+                'email'                    => isset($_POST['email']) ? wp_unslash($_POST['email']) : '',
+                'tipo_documento'           => isset($_POST['tipo_documento']) ? wp_unslash($_POST['tipo_documento']) : '',
+                'is_active'                => isset($_POST['is_active']) ? 1 : 0,
             ];
 
             // Keep posted values available if validation fails.
@@ -199,6 +207,24 @@ if (!class_exists('JC_Customers_Admin')) {
             $search      = isset($_GET['s']) ? sanitize_text_field(wp_unslash($_GET['s'])) : '';
             $action      = isset($_GET['action']) ? sanitize_key(wp_unslash($_GET['action'])) : 'list';
             $customer_id = isset($_GET['customer_id']) ? absint($_GET['customer_id']) : 0;
+            $departamentos = [];
+            $municipios = [];
+            $actividades_economicas = [];
+            
+            if ($table_ready) {
+                $departamentos = JC_Customer_Service::get_departamentos();
+            
+                $selected_departamento = '';
+                if (!empty($customer['departamento_code'])) {
+                    $selected_departamento = (string) $customer['departamento_code'];
+                } elseif (!empty(self::$request_form_data['departamento_code'])) {
+                    $selected_departamento = (string) self::$request_form_data['departamento_code'];
+                }
+            
+                $municipios = JC_Customer_Service::get_municipios_by_departamento($selected_departamento);
+                $actividades_economicas = JC_Customer_Service::get_actividades_economicas('', 500);
+            }
+
 
             if (!in_array($action, ['list', 'view', 'edit', 'new'], true)) {
                 $action = 'list';

@@ -52,29 +52,34 @@ $nit_field_style  = $is_nit_error ? 'border-color:#d63638;' : '';
     <?php if ($action === 'new' || ($action === 'edit' && !empty($customer))) : ?>
         <?php
         $form_customer = is_array($customer) ? $customer : [
-            'id'         => 0,
-            'wp_user_id' => '',
-            'first_name' => '',
-            'last_name'  => '',
-            'company'    => '',
-            'nrc'        => '',
-            'nit'        => '',
-            'address'    => '',
-            'city'       => '',
-            'phone'      => '',
-            'email'      => '',
-            'is_active'  => 1,
+            'id'                       => 0,
+            'wp_user_id'               => '',
+            'tipo_persona'             => '',
+            'first_name'               => '',
+            'last_name'                => '',
+            'company'                  => '',
+            'nombre_comercial'         => '',
+            'nrc'                      => '',
+            'nit'                      => '',
+            'actividad_economica_code' => '',
+            'actividad_economica_desc' => '',
+            'address'                  => '',
+            'city'                     => '',
+            'departamento_code'        => '',
+            'municipio_code'           => '',
+            'direccion_complemento'    => '',
+            'phone'                    => '',
+            'email'                    => '',
+            'tipo_documento'           => '',
+            'is_active'                => 1,
         ];
         ?>
 
-        <div class="postbox" style="max-width: 900px; padding: 20px; margin-top: 20px;">
+        <div class="postbox" style="max-width: 980px; padding: 20px; margin-top: 20px;">
             <h2><?php echo esc_html($action === 'new' ? 'Add Customer' : 'Edit Customer'); ?></h2>
 
             <?php if ($show_form_error) : ?>
-                <div
-                    class="notice notice-error"
-                    style="margin: 12px 0 15px 0; border-left: 4px solid #d63638; background: #fff;"
-                >
+                <div class="notice notice-error" style="margin: 12px 0 15px 0; border-left: 4px solid #d63638; background: #fff;">
                     <p style="margin: 10px 12px; color: #d63638; font-weight: 600;">
                         <?php echo esc_html($current_error_message); ?>
                     </p>
@@ -90,28 +95,27 @@ $nit_field_style  = $is_nit_error ? 'border-color:#d63638;' : '';
                 <table class="form-table" role="presentation">
                     <tbody>
                         <tr>
+                            <th scope="row"><label for="tipo_persona">Tipo Persona</label></th>
+                            <td>
+                                <select name="tipo_persona" id="tipo_persona">
+                                    <option value="">Select</option>
+                                    <option value="NATURAL" <?php selected((string)($form_customer['tipo_persona'] ?? ''), 'NATURAL'); ?>>Natural</option>
+                                    <option value="JURIDICA" <?php selected((string)($form_customer['tipo_persona'] ?? ''), 'JURIDICA'); ?>>Jurídica</option>
+                                </select>
+                            </td>
+                        </tr>
+
+                        <tr>
                             <th scope="row">
                                 <label for="first_name">
                                     First Name
-                                    <?php if ($is_name_error) : ?>
-                                        <span style="color:#d63638;font-weight:700;">*</span>
-                                    <?php endif; ?>
+                                    <?php if ($is_name_error) : ?><span style="color:#d63638;font-weight:700;">*</span><?php endif; ?>
                                 </label>
                             </th>
                             <td>
-                                <input
-                                    type="text"
-                                    name="first_name"
-                                    id="first_name"
-                                    class="regular-text"
+                                <input type="text" name="first_name" id="first_name" class="regular-text"
                                     value="<?php echo esc_attr((string) ($form_customer['first_name'] ?? '')); ?>"
-                                    style="<?php echo esc_attr($name_field_style); ?>"
-                                >
-                                <?php if ($is_name_error) : ?>
-                                    <p style="margin:6px 0 0;color:#d63638;font-weight:600;">
-                                        Enter a first/last name or a company name.
-                                    </p>
-                                <?php endif; ?>
+                                    style="<?php echo esc_attr($name_field_style); ?>">
                             </td>
                         </tr>
 
@@ -119,20 +123,13 @@ $nit_field_style  = $is_nit_error ? 'border-color:#d63638;' : '';
                             <th scope="row">
                                 <label for="last_name">
                                     Last Name
-                                    <?php if ($is_name_error) : ?>
-                                        <span style="color:#d63638;font-weight:700;">*</span>
-                                    <?php endif; ?>
+                                    <?php if ($is_name_error) : ?><span style="color:#d63638;font-weight:700;">*</span><?php endif; ?>
                                 </label>
                             </th>
                             <td>
-                                <input
-                                    type="text"
-                                    name="last_name"
-                                    id="last_name"
-                                    class="regular-text"
+                                <input type="text" name="last_name" id="last_name" class="regular-text"
                                     value="<?php echo esc_attr((string) ($form_customer['last_name'] ?? '')); ?>"
-                                    style="<?php echo esc_attr($name_field_style); ?>"
-                                >
+                                    style="<?php echo esc_attr($name_field_style); ?>">
                             </td>
                         </tr>
 
@@ -140,25 +137,21 @@ $nit_field_style  = $is_nit_error ? 'border-color:#d63638;' : '';
                             <th scope="row">
                                 <label for="company">
                                     Company
-                                    <?php if ($is_name_error) : ?>
-                                        <span style="color:#d63638;font-weight:700;">*</span>
-                                    <?php endif; ?>
+                                    <?php if ($is_name_error) : ?><span style="color:#d63638;font-weight:700;">*</span><?php endif; ?>
                                 </label>
                             </th>
                             <td>
-                                <input
-                                    type="text"
-                                    name="company"
-                                    id="company"
-                                    class="regular-text"
+                                <input type="text" name="company" id="company" class="regular-text"
                                     value="<?php echo esc_attr((string) ($form_customer['company'] ?? '')); ?>"
-                                    style="<?php echo esc_attr($name_field_style); ?>"
-                                >
-                                <?php if ($is_name_error) : ?>
-                                    <p style="margin:6px 0 0;color:#d63638;font-weight:600;">
-                                        Company can be used instead of a personal name.
-                                    </p>
-                                <?php endif; ?>
+                                    style="<?php echo esc_attr($name_field_style); ?>">
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th scope="row"><label for="nombre_comercial">Nombre Comercial</label></th>
+                            <td>
+                                <input type="text" name="nombre_comercial" id="nombre_comercial" class="regular-text"
+                                    value="<?php echo esc_attr((string) ($form_customer['nombre_comercial'] ?? '')); ?>">
                             </td>
                         </tr>
 
@@ -166,25 +159,13 @@ $nit_field_style  = $is_nit_error ? 'border-color:#d63638;' : '';
                             <th scope="row">
                                 <label for="nrc">
                                     NRC
-                                    <?php if ($is_nrc_error) : ?>
-                                        <span style="color:#d63638;font-weight:700;">*</span>
-                                    <?php endif; ?>
+                                    <?php if ($is_nrc_error) : ?><span style="color:#d63638;font-weight:700;">*</span><?php endif; ?>
                                 </label>
                             </th>
                             <td>
-                                <input
-                                    type="text"
-                                    name="nrc"
-                                    id="nrc"
-                                    class="regular-text"
+                                <input type="text" name="nrc" id="nrc" class="regular-text"
                                     value="<?php echo esc_attr((string) ($form_customer['nrc'] ?? '')); ?>"
-                                    style="<?php echo esc_attr($nrc_field_style); ?>"
-                                >
-                                <?php if ($is_nrc_error) : ?>
-                                    <p style="margin:6px 0 0;color:#d63638;font-weight:600;">
-                                        <?php echo esc_html($current_error_message); ?>
-                                    </p>
-                                <?php endif; ?>
+                                    style="<?php echo esc_attr($nrc_field_style); ?>">
                             </td>
                         </tr>
 
@@ -192,89 +173,123 @@ $nit_field_style  = $is_nit_error ? 'border-color:#d63638;' : '';
                             <th scope="row">
                                 <label for="nit">
                                     NIT
-                                    <?php if ($is_nit_error) : ?>
-                                        <span style="color:#d63638;font-weight:700;">*</span>
-                                    <?php endif; ?>
+                                    <?php if ($is_nit_error) : ?><span style="color:#d63638;font-weight:700;">*</span><?php endif; ?>
                                 </label>
                             </th>
                             <td>
-                                <input
-                                    type="text"
-                                    name="nit"
-                                    id="nit"
-                                    class="regular-text"
+                                <input type="text" name="nit" id="nit" class="regular-text"
                                     value="<?php echo esc_attr((string) ($form_customer['nit'] ?? '')); ?>"
-                                    style="<?php echo esc_attr($nit_field_style); ?>"
-                                >
-                                <?php if ($is_nit_error) : ?>
-                                    <p style="margin:6px 0 0;color:#d63638;font-weight:600;">
-                                        <?php echo esc_html($current_error_message); ?>
-                                    </p>
-                                <?php endif; ?>
+                                    style="<?php echo esc_attr($nit_field_style); ?>">
                             </td>
                         </tr>
 
                         <tr>
-                            <th scope="row"><label for="address">Address</label></th>
+                            <th scope="row"><label for="actividad_economica_code">Actividad Económica</label></th>
                             <td>
-                                <textarea
-                                    name="address"
-                                    id="address"
-                                    class="large-text"
-                                    rows="3"
-                                ><?php echo esc_textarea((string) ($form_customer['address'] ?? '')); ?></textarea>
+                                <select name="actividad_economica_code" id="actividad_economica_code" class="regular-text">
+                                    <option value="">Select activity</option>
+                                    <?php foreach (($actividades_economicas ?? []) as $actividad) : ?>
+                                        <option
+                                            value="<?php echo esc_attr((string)$actividad['code']); ?>"
+                                            data-desc="<?php echo esc_attr((string)$actividad['name']); ?>"
+                                            <?php selected((string)($form_customer['actividad_economica_code'] ?? ''), (string)$actividad['code']); ?>
+                                        >
+                                            <?php echo esc_html((string)$actividad['code'] . ' - ' . (string)$actividad['name']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <input type="hidden" name="actividad_economica_desc" id="actividad_economica_desc"
+                                    value="<?php echo esc_attr((string)($form_customer['actividad_economica_desc'] ?? '')); ?>">
                             </td>
                         </tr>
 
                         <tr>
-                            <th scope="row"><label for="city">City</label></th>
+                            <th scope="row"><label for="departamento_code">Departamento</label></th>
                             <td>
-                                <input
-                                    type="text"
-                                    name="city"
-                                    id="city"
-                                    class="regular-text"
-                                    value="<?php echo esc_attr((string) ($form_customer['city'] ?? '')); ?>"
-                                >
+                                <select name="departamento_code" id="departamento_code" class="regular-text">
+                                    <option value="">Select department</option>
+                                    <?php foreach (($departamentos ?? []) as $dep) : ?>
+                                        <option value="<?php echo esc_attr((string)$dep['code']); ?>"
+                                            <?php selected((string)($form_customer['departamento_code'] ?? ''), (string)$dep['code']); ?>>
+                                            <?php echo esc_html((string)$dep['name']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th scope="row"><label for="municipio_code">Municipio</label></th>
+                            <td>
+                                <select name="municipio_code" id="municipio_code" class="regular-text">
+                                    <option value="">Select municipio</option>
+                                    <?php foreach (($municipios ?? []) as $mun) : ?>
+                                        <option value="<?php echo esc_attr((string)$mun['municipio_code']); ?>"
+                                            data-departamento="<?php echo esc_attr((string)$mun['departamento_code']); ?>"
+                                            <?php selected((string)($form_customer['municipio_code'] ?? ''), (string)$mun['municipio_code']); ?>>
+                                            <?php echo esc_html((string)$mun['name']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th scope="row"><label for="direccion_complemento">Dirección Complemento</label></th>
+                            <td>
+                                <textarea name="direccion_complemento" id="direccion_complemento" class="large-text" rows="3"><?php
+                                    echo esc_textarea((string) ($form_customer['direccion_complemento'] ?? ''));
+                                ?></textarea>
+                                <p class="description">Use this field for district + detailed address.</p>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th scope="row"><label for="address">Legacy Address</label></th>
+                            <td>
+                                <textarea name="address" id="address" class="large-text" rows="2"><?php
+                                    echo esc_textarea((string) ($form_customer['address'] ?? ''));
+                                ?></textarea>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th scope="row"><label for="city">Legacy City</label></th>
+                            <td>
+                                <input type="text" name="city" id="city" class="regular-text"
+                                    value="<?php echo esc_attr((string) ($form_customer['city'] ?? '')); ?>">
                             </td>
                         </tr>
 
                         <tr>
                             <th scope="row"><label for="phone">Phone</label></th>
                             <td>
-                                <input
-                                    type="text"
-                                    name="phone"
-                                    id="phone"
-                                    class="regular-text"
-                                    value="<?php echo esc_attr((string) ($form_customer['phone'] ?? '')); ?>"
-                                >
+                                <input type="text" name="phone" id="phone" class="regular-text"
+                                    value="<?php echo esc_attr((string) ($form_customer['phone'] ?? '')); ?>">
                             </td>
                         </tr>
 
                         <tr>
                             <th scope="row"><label for="email">Email</label></th>
                             <td>
-                                <input
-                                    type="email"
-                                    name="email"
-                                    id="email"
-                                    class="regular-text"
-                                    value="<?php echo esc_attr((string) ($form_customer['email'] ?? '')); ?>"
-                                >
+                                <input type="email" name="email" id="email" class="regular-text"
+                                    value="<?php echo esc_attr((string) ($form_customer['email'] ?? '')); ?>">
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th scope="row"><label for="tipo_documento">Tipo Documento</label></th>
+                            <td>
+                                <input type="text" name="tipo_documento" id="tipo_documento" class="regular-text"
+                                    value="<?php echo esc_attr((string) ($form_customer['tipo_documento'] ?? '')); ?>">
                             </td>
                         </tr>
 
                         <tr>
                             <th scope="row"><label for="wp_user_id">WP User ID</label></th>
                             <td>
-                                <input
-                                    type="number"
-                                    name="wp_user_id"
-                                    id="wp_user_id"
-                                    class="small-text"
-                                    value="<?php echo esc_attr((string) ($form_customer['wp_user_id'] ?? '')); ?>"
-                                >
+                                <input type="number" name="wp_user_id" id="wp_user_id" class="small-text"
+                                    value="<?php echo esc_attr((string) ($form_customer['wp_user_id'] ?? '')); ?>">
                             </td>
                         </tr>
 
@@ -282,12 +297,7 @@ $nit_field_style  = $is_nit_error ? 'border-color:#d63638;' : '';
                             <th scope="row">Active</th>
                             <td>
                                 <label>
-                                    <input
-                                        type="checkbox"
-                                        name="is_active"
-                                        value="1"
-                                        <?php checked(!empty($form_customer['is_active'])); ?>
-                                    >
+                                    <input type="checkbox" name="is_active" value="1" <?php checked(!empty($form_customer['is_active'])); ?>>
                                     Customer is active
                                 </label>
                             </td>
@@ -301,52 +311,96 @@ $nit_field_style  = $is_nit_error ? 'border-color:#d63638;' : '';
                 </p>
             </form>
         </div>
+
+        <script>
+        (function() {
+            var actividad = document.getElementById('actividad_economica_code');
+            var actividadDesc = document.getElementById('actividad_economica_desc');
+            if (actividad && actividadDesc) {
+                var syncActividad = function() {
+                    var opt = actividad.options[actividad.selectedIndex];
+                    actividadDesc.value = opt ? (opt.getAttribute('data-desc') || '') : '';
+                };
+                actividad.addEventListener('change', syncActividad);
+                syncActividad();
+            }
+
+            var dep = document.getElementById('departamento_code');
+            var mun = document.getElementById('municipio_code');
+            if (dep && mun) {
+                var allOptions = [];
+                for (var i = 0; i < mun.options.length; i++) {
+                    allOptions.push({
+                        value: mun.options[i].value,
+                        text: mun.options[i].text,
+                        dep: mun.options[i].getAttribute('data-departamento') || ''
+                    });
+                }
+
+                var selectedMunicipio = mun.value;
+
+                var filterMunicipios = function() {
+                    var depValue = dep.value;
+                    var currentValue = mun.value || selectedMunicipio;
+
+                    mun.innerHTML = '';
+
+                    var placeholder = document.createElement('option');
+                    placeholder.value = '';
+                    placeholder.text = 'Select municipio';
+                    mun.appendChild(placeholder);
+
+                    for (var j = 0; j < allOptions.length; j++) {
+                        var item = allOptions[j];
+                        if (item.value === '') {
+                            continue;
+                        }
+                        if (depValue === '' || item.dep === depValue) {
+                            var opt = document.createElement('option');
+                            opt.value = item.value;
+                            opt.text = item.text;
+                            opt.setAttribute('data-departamento', item.dep);
+                            if (item.value === currentValue) {
+                                opt.selected = true;
+                            }
+                            mun.appendChild(opt);
+                        }
+                    }
+                };
+
+                dep.addEventListener('change', function() {
+                    selectedMunicipio = '';
+                    filterMunicipios();
+                });
+
+                filterMunicipios();
+            }
+        })();
+        </script>
     <?php endif; ?>
 
     <?php if ($action === 'view' && !empty($customer)) : ?>
         <div class="postbox" style="max-width: 1000px; padding: 20px; margin-top: 20px;">
             <h2>
                 <?php echo esc_html(JC_Customer_Service::build_customer_name($customer)); ?>
-                <a
-                    href="<?php echo esc_url(JC_Customers_Admin::page_url([
-                        'action'      => 'edit',
-                        'customer_id' => (int) $customer['id'],
-                    ])); ?>"
-                    class="button"
-                    style="margin-left: 10px;"
-                >Edit</a>
+                <a href="<?php echo esc_url(JC_Customers_Admin::page_url([
+                    'action'      => 'edit',
+                    'customer_id' => (int) $customer['id'],
+                ])); ?>" class="button" style="margin-left: 10px;">Edit</a>
             </h2>
 
             <table class="widefat striped" style="max-width: 900px;">
                 <tbody>
-                    <tr>
-                        <td><strong>Company</strong></td>
-                        <td><?php echo esc_html((string) ($customer['company'] ?? '')); ?></td>
-                    </tr>
-                    <tr>
-                        <td><strong>NRC</strong></td>
-                        <td><?php echo esc_html((string) ($customer['nrc'] ?? '')); ?></td>
-                    </tr>
-                    <tr>
-                        <td><strong>NIT</strong></td>
-                        <td><?php echo esc_html((string) ($customer['nit'] ?? '')); ?></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Address</strong></td>
-                        <td><?php echo esc_html((string) ($customer['address'] ?? '')); ?></td>
-                    </tr>
-                    <tr>
-                        <td><strong>City</strong></td>
-                        <td><?php echo esc_html((string) ($customer['city'] ?? '')); ?></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Phone</strong></td>
-                        <td><?php echo esc_html((string) ($customer['phone'] ?? '')); ?></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Email</strong></td>
-                        <td><?php echo esc_html((string) ($customer['email'] ?? '')); ?></td>
-                    </tr>
+                    <tr><td><strong>Company</strong></td><td><?php echo esc_html((string) ($customer['company'] ?? '')); ?></td></tr>
+                    <tr><td><strong>Nombre Comercial</strong></td><td><?php echo esc_html((string) ($customer['nombre_comercial'] ?? '')); ?></td></tr>
+                    <tr><td><strong>NRC</strong></td><td><?php echo esc_html((string) ($customer['nrc'] ?? '')); ?></td></tr>
+                    <tr><td><strong>NIT</strong></td><td><?php echo esc_html((string) ($customer['nit'] ?? '')); ?></td></tr>
+                    <tr><td><strong>Actividad Económica</strong></td><td><?php echo esc_html((string) ($customer['actividad_economica_code'] ?? '')); ?> - <?php echo esc_html((string) ($customer['actividad_economica_desc'] ?? '')); ?></td></tr>
+                    <tr><td><strong>Departamento</strong></td><td><?php echo esc_html((string) ($customer['departamento_code'] ?? '')); ?></td></tr>
+                    <tr><td><strong>Municipio</strong></td><td><?php echo esc_html((string) ($customer['municipio_code'] ?? '')); ?></td></tr>
+                    <tr><td><strong>Dirección Complemento</strong></td><td><?php echo esc_html((string) ($customer['direccion_complemento'] ?? '')); ?></td></tr>
+                    <tr><td><strong>Phone</strong></td><td><?php echo esc_html((string) ($customer['phone'] ?? '')); ?></td></tr>
+                    <tr><td><strong>Email</strong></td><td><?php echo esc_html((string) ($customer['email'] ?? '')); ?></td></tr>
                 </tbody>
             </table>
 
@@ -403,8 +457,10 @@ $nit_field_style  = $is_nit_error ? 'border-color:#d63638;' : '';
                         <th>ID</th>
                         <th>Name</th>
                         <th>Company</th>
+                        <th>Nombre Comercial</th>
                         <th>NRC</th>
                         <th>NIT</th>
+                        <th>Actividad</th>
                         <th>Phone</th>
                         <th>Email</th>
                         <th>Actions</th>
@@ -416,26 +472,22 @@ $nit_field_style  = $is_nit_error ? 'border-color:#d63638;' : '';
                             <td><?php echo esc_html((string) $row['id']); ?></td>
                             <td><?php echo esc_html(JC_Customer_Service::build_customer_name($row)); ?></td>
                             <td><?php echo esc_html((string) ($row['company'] ?? '')); ?></td>
+                            <td><?php echo esc_html((string) ($row['nombre_comercial'] ?? '')); ?></td>
                             <td><?php echo esc_html((string) ($row['nrc'] ?? '')); ?></td>
                             <td><?php echo esc_html((string) ($row['nit'] ?? '')); ?></td>
+                            <td><?php echo esc_html((string) ($row['actividad_economica_code'] ?? '')); ?></td>
                             <td><?php echo esc_html((string) ($row['phone'] ?? '')); ?></td>
                             <td><?php echo esc_html((string) ($row['email'] ?? '')); ?></td>
                             <td>
-                                <a
-                                    class="button button-small"
-                                    href="<?php echo esc_url(JC_Customers_Admin::page_url([
-                                        'action'      => 'view',
-                                        'customer_id' => (int) $row['id'],
-                                    ])); ?>"
-                                >View</a>
+                                <a class="button button-small" href="<?php echo esc_url(JC_Customers_Admin::page_url([
+                                    'action'      => 'view',
+                                    'customer_id' => (int) $row['id'],
+                                ])); ?>">View</a>
 
-                                <a
-                                    class="button button-small"
-                                    href="<?php echo esc_url(JC_Customers_Admin::page_url([
-                                        'action'      => 'edit',
-                                        'customer_id' => (int) $row['id'],
-                                    ])); ?>"
-                                >Edit</a>
+                                <a class="button button-small" href="<?php echo esc_url(JC_Customers_Admin::page_url([
+                                    'action'      => 'edit',
+                                    'customer_id' => (int) $row['id'],
+                                ])); ?>">Edit</a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
