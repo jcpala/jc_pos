@@ -369,17 +369,21 @@ class JC_Invoice_Service {
             $data = self::hydrate_customer_snapshot_data($data);
 
             error_log('JC create_invoice hydrated data: ' . print_r([
-                'customer_id'                    => $data['customer_id'] ?? null,
-                'customer_name'                  => $data['customer_name'] ?? null,
-                'customer_company'               => $data['customer_company'] ?? null,
-                'customer_nit'                   => $data['customer_nit'] ?? null,
-                'customer_nrc'                   => $data['customer_nrc'] ?? null,
-                'customer_departamento_code'     => $data['customer_departamento_code'] ?? null,
-                'customer_municipio_code'        => $data['customer_municipio_code'] ?? null,
-                'customer_direccion_complemento' => $data['customer_direccion_complemento'] ?? null,
-                'customer_actividad_code'        => $data['customer_actividad_code'] ?? null,
-                'customer_actividad_desc'        => $data['customer_actividad_desc'] ?? null,
-                'customer_email'                 => $data['customer_email'] ?? null,
+                'customer_id'                    => (int) $resolved_customer['customer_id'],
+                'customer_name'                  => $resolved_customer['customer_name'],
+                'customer_company'               => $resolved_customer['customer_company'],
+                'customer_nombre_comercial'      => $resolved_customer['customer_nombre_comercial'],
+                'customer_nrc'                   => $resolved_customer['customer_nrc'],
+                'customer_nit'                   => $resolved_customer['customer_nit'],
+                'customer_address'               => $resolved_customer['customer_address'],
+                'customer_city'                  => $resolved_customer['customer_city'],
+                'customer_departamento_code'     => $resolved_customer['customer_departamento_code'],
+                'customer_municipio_code'        => $resolved_customer['customer_municipio_code'],
+                'customer_direccion_complemento' => $resolved_customer['customer_direccion_complemento'],
+                'customer_actividad_code'        => $resolved_customer['customer_actividad_code'],
+                'customer_actividad_desc'        => $resolved_customer['customer_actividad_desc'],
+                'customer_phone'                 => $resolved_customer['customer_phone'],
+                'customer_email'                 => $resolved_customer['customer_email'],
             ], true));
             
             self::validate_invoice_input($data);
